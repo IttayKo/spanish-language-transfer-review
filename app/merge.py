@@ -1,6 +1,8 @@
 import json, glob, re, os
 
-files = sorted(glob.glob('/mnt/user-data/outputs/lt-review-track*.json'),
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+files = sorted(glob.glob(os.path.join(ROOT, 'data', 'per-track', 'lt-review-track*.json')),
                key=lambda f: min(int(x) for x in re.findall(r'\d+', os.path.basename(f))))
 
 packs = []
@@ -46,7 +48,7 @@ combined = {
     'packs': packs,
 }
 
-out_path = '/tmp/claude-0/-home-claude/a1a82151-7143-5f7c-aee2-1c713e8f84a4/scratchpad/lt/app/combined.json'
+out_path = os.path.join(ROOT, 'data', 'combined-per-track.json')
 with open(out_path, 'w', encoding='utf-8') as fh:
     json.dump(combined, fh, ensure_ascii=False)
 

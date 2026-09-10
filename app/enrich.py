@@ -1,10 +1,13 @@
 import json
+import os
 
-with open('/tmp/claude-0/-home-claude/a1a82151-7143-5f7c-aee2-1c713e8f84a4/scratchpad/lt/app/combined-per-track.json', encoding='utf-8') as f:
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+with open(os.path.join(ROOT, 'data', 'combined-per-track.json'), encoding='utf-8') as f:
     data = json.load(f)
 
-blurbs = json.load(open('/tmp/lt-blurbs/all-blurbs.json'))
-sections = json.load(open('/tmp/lt-blurbs/sections.json'))['sections']
+blurbs = json.load(open(os.path.join(ROOT, 'data', 'all-blurbs.json')))
+sections = json.load(open(os.path.join(ROOT, 'data', 'sections.json')))['sections']
 
 def section_for(track):
     for i, s in enumerate(sections):
@@ -19,7 +22,7 @@ for p in data['packs']:
 
 data['sections'] = [{"title": s['title'], "focus": s['focus'], "start": s['start'], "end": s['end']} for s in sections]
 
-with open('/tmp/claude-0/-home-claude/a1a82151-7143-5f7c-aee2-1c713e8f84a4/scratchpad/lt/app/combined-final.json', 'w', encoding='utf-8') as f:
+with open(os.path.join(ROOT, 'data', 'combined-final.json'), 'w', encoding='utf-8') as f:
     json.dump(data, f, ensure_ascii=False)
 
 print('packs:', len(data['packs']), 'sections:', len(data['sections']))
