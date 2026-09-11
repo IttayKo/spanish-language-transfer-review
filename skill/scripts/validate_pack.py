@@ -16,11 +16,16 @@ import sys
 
 SPANISH_MARKERS = {
     "el", "la", "los", "las", "un", "una", "unos", "unas", "que", "qué", "de",
-    "del", "y", "es", "está", "estoy", "soy", "he", "has", "ha", "hemos", "han",
-    "no", "lo", "le", "me", "te", "se", "nos", "para", "por", "con", "pero",
+    "del", "y", "es", "está", "estoy", "soy", "hemos", "han",
+    "lo", "le", "te", "se", "nos", "para", "por", "con", "pero",
     "muy", "mucho", "más", "cómo", "dónde", "cuándo", "porque", "quiero",
     "puedo", "tengo", "hay", "está", "ser", "estar", "hacer", "tener",
 }
+# These are Spanish too, but they are also ordinary English words, so on their
+# own they say nothing. They only count once a real marker is already present -
+# otherwise a plain English prompt like "He has given me something" gets failed
+# and has to be written around, which damages the prompt to please the checker.
+AMBIGUOUS_MARKERS = {"he", "has", "ha", "me", "no", "a", "son", "van", "ven", "sea"}
 ACCENTS = re.compile(r"[áéíóúñü¿¡]", re.IGNORECASE)
 WORDS = re.compile(r"[a-záéíóúñü]+", re.IGNORECASE)
 
@@ -29,10 +34,12 @@ def spanish_leak(text):
     """Return the reason this English prompt looks like it contains Spanish."""
     if ACCENTS.search(text):
         return "contains Spanish characters or punctuation"
-    hits = [w for w in WORDS.findall(text.lower()) if w in SPANISH_MARKERS]
-    # "no", "a", "he", "la" also exist in English, so require two or more.
-    if len(set(hits)) >= 2:
-        return f"contains Spanish words: {', '.join(sorted(set(hits)))}"
+    words = [w for w in WORDS.findall(text.lower())]
+    hits = {w for w in words if w in SPANISH_MARKERS}
+    if hits:
+        hits |= {w for w in words if w in AMBIGUOUS_MARKERS}
+    if len(hits) >= 2:
+        return f"contains Spanish words: {', '.join(sorted(hits))}"
     return None
 
 
