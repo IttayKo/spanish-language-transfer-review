@@ -5,6 +5,15 @@ course: 90 tracks (1–90), grouped into 12 thematic sections, each with rules
 (grammar explanations in the teacher's own derivational language) and
 speaking drills (English prompt in, spoken Spanish out — never the reverse).
 
+**All rules**, reached from the top bar of the track list, is the whole
+course's grammar in one searchable place, for when you remember the rule but
+not which track taught it. The course teaches a mechanism once and then keeps
+coming back to it, and every track that leans on an earlier rule carries its
+own copy so its Rules tab stands alone — so the glossary groups those copies
+by the rule's `family` and shows each of the 246 concepts once: the fullest
+wording any track gives it, every track it comes back in, any track that words
+it differently, and a button per track to practice it with that track's drills.
+
 **Live app:** open `index.html` directly, or deploy it as a static site (see
 below) — it's one self-contained file with the entire dataset embedded, no
 build step, no server, no dependencies.
@@ -19,7 +28,7 @@ build step, no server, no dependencies.
 | `app/merge.py` | Combines a directory of per-track-range pack JSON files into one dataset, namespacing rule ids per pack to avoid id collisions. |
 | `app/split_per_track.py` | Splits a merged multi-track-range dataset into one pack per individual track. |
 | `app/enrich.py` | Adds each track's one-line description (`blurb`) and section grouping (`sectionIndex`) to the dataset. |
-| `data/combined-final.json` | The full dataset: 90 packs (one per track), each with its rules + drills, plus a top-level `sections` array (12 thematic groupings) and per-track blurbs. This is what's embedded into `index.html`. Track 1 is the course's own introduction (Thinking Method philosophy, no Spanish yet) and has no drills — see the note in `pack-format.md`. |
+| `data/combined-final.json` | The full dataset: 90 packs (one per track), each with its rules + drills (each rule carrying the `family` key that links it to its copies in other tracks), plus a top-level `sections` array (12 thematic groupings) and per-track blurbs. This is what's embedded into `index.html`. Track 1 is the course's own introduction (Thinking Method philosophy, no Spanish yet) and has no drills — see the note in `pack-format.md`. |
 | `skill/SKILL.md` | The methodology used to mine rules/drills from the raw course transcript into pack JSON — read this before generating packs for a different course or additional tracks. |
 | `skill/references/pack-format.md` | Full schema reference for a pack JSON file. |
 | `skill/scripts/extract_track.py` | Pulls a track range out of a transcript file (plain text or PDF). |

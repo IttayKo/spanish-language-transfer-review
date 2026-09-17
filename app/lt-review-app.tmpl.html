@@ -671,7 +671,7 @@ function glossaryEntryHtml(e, i, isOpen){
 
   var targets = e.copies.filter(function(c){ return c.drills > 0; });
   if(!targets.length){
-    body += '<div class="where">No drills practise this one on its own.</div>';
+    body += '<div class="where">No drills practice this one on its own.</div>';
   } else if(targets.length===1){
     body += '<div class="practicerow"><button class="gpractice" data-pid="'+esc(targets[0].packId)+'" data-ruleid="'+esc(targets[0].rule.id)+'">' +
       'Practice this rule &middot; track '+targets[0].track+' &rarr;</button></div>';

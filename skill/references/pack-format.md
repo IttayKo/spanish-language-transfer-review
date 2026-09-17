@@ -104,6 +104,31 @@ Bad: `"Why haven't you celebrated (using has)?"` — that's the answer.
 
 Punctuate normally. Don't add the Spanish inverted marks to the English.
 
+House style, because the prompts are read one after another:
+
+- A `build` prompt is a sentence: it starts with a capital and ends with its
+  own `.` or `?`.
+- A `forge` prompt is the word or phrase to convert, so it takes **no** final
+  full stop — neither does its answer.
+- A disambiguating bracket goes **after** the sentence's own punctuation and
+  ends the prompt: `"You see it. (formal)"`, not `"You see it (formal)."`.
+- The vocabulary in that bracket is small and reused: `(informal)`,
+  `(formal)`, `(formal, plural)`, `(informal order)`, `(emphatic)`,
+  `(point in the past)`, `(right now)`, plus a content hint where the English
+  is genuinely open (`(the door)`, `(using auto)`).
+- Two drills may share a prompt only if they share an answer. If one English
+  prompt has two right answers across the course — "I would have" for both
+  *habría* and *tendría* — each says which it means.
+
+## Steps
+
+A step names the decision it is making, then shows what that decision
+produces: `"not: no, right before es"`, `"put it together: se lo vendí"`.
+
+A step that is only the Spanish hands over the answer without the move that
+got there, which is the one thing the scaffolding exists for. Steps are
+lowercase (unless they open with `I` or a name) and carry no final full stop.
+
 ## Combined dataset (this repo)
 
 `data/combined-final.json` holds every pack merged together, one pack per
