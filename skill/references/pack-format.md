@@ -17,13 +17,44 @@ A pack is one JSON file. The player reads nothing else.
 | Field | Required | Notes |
 |---|---|---|
 | `id` | yes | Short kebab-case slug, unique in the pack. Drills reference it. |
-| `title` | yes | A phrase the learner would recognise, in plain words: `"The \"have\" past"`, not `"Present perfect"`. |
+| `family` | yes (combined dataset) | The concept key shared by every copy of this rule across packs — see "One rule, many tracks" below. |
+| `title` | yes | A phrase the learner would recognise, in plain words: `"The \"have\" past"`, not `"Present perfect"`. Write it so it still makes sense pulled out of its track and read in a list of every rule in the course. |
 | `explanation` | yes | Two or three sentences in the teacher's derivational voice. Say what you *do*, in order. Mention where the form is useful if he did. |
-| `examples` | strongly preferred | Array of short strings, ideally showing the derivation with arrows: `"hablar -> hablado -> he hablado"`. |
-| `track` | yes | The track that introduced it. |
+| `examples` | strongly preferred | Array of short strings, ideally showing the derivation with arrows: `"hablar -> hablado -> he hablado"`. Use the ASCII `->`, not `→`. |
+| `track` | yes | The track that introduced it — *not* the track this copy sits in. For a carried-forward copy these differ, and that difference is what marks it as a copy. |
 
 The explanation is read after a failed drill, so it has to be enough to rebuild
 the form from, not just enough to recognise it.
+
+### One rule, many tracks: `family`
+
+The course teaches a mechanism once and then genuinely comes back to it — the
+future ending, gustar, where the little words sit. A later track that leans on
+an earlier rule gets its **own copy** of that rule object, carrying the
+introducing track's wording forward plus whatever this track adds, so a track's
+Rules tab is self-contained and never sends the learner hunting backwards.
+
+Every copy carries:
+
+- the same `family` key (kebab-case, normally the id's slug with any
+  `-2`/`-3` collision suffix stripped: `t41__would-tense-ia` and
+  `t83__would-tense-ia` are both `family: "would-tense-ia"`),
+- the same `track` — the track that *introduced* it,
+- its own pack-namespaced `id`, and its own examples if this track's examples
+  are better ones.
+
+Exactly one copy of a family is the introduction: the one sitting in the pack
+whose track equals its `track`. Every other copy has `track` lower than the
+track of the pack it sits in.
+
+`family` is what the app's glossary groups on, so it has to be right:
+
+- **Never introduce the same rule twice under two slugs.** If a track revisits
+  something already taught, copy the existing family forward — don't mint
+  `tener-que-have-to` when `que-have-to` already exists. Two families with the
+  same title is the tell.
+- **Never merge two rules into one family because they look alike.** `e-split-ie`
+  and `o-split-ue` are siblings, not the same rule.
 
 ## Drill object
 
@@ -77,7 +108,9 @@ Punctuate normally. Don't add the Spanish inverted marks to the English.
 
 `data/combined-final.json` holds every pack merged together, one pack per
 individual track (`{id: "t21", tracks: [21], ...}`), each rule id namespaced
-per-pack (`t21__perfect-ado`) to avoid collisions across tracks, plus a
+per-pack (`t21__perfect-ado`) to avoid collisions across tracks and each rule
+carrying the `family` key that links it to the other copies of the same rule
+in other tracks, plus a
 top-level `sections` array grouping tracks into 12 thematic parts with a
 `start`/`end` track range and a one-sentence `focus` each, and a `blurb` field
 per pack with a one-line description of what that track teaches. `app/build_app.py`
