@@ -229,8 +229,10 @@ function persist(){ try{ localStorage.setItem(storeKey(), JSON.stringify(grades)
 function restore(){ try{ var raw = localStorage.getItem(storeKey()); grades = raw ? JSON.parse(raw) : {}; }catch(e){ grades = {}; } }
 
 function ruleById(id){
-  if(!pack) return null;
-  for(var i=0;i<pack.rules.length;i++){ if(pack.rules[i].id===id) return pack.rules[i]; }
+  for(var i=0;i<DATA.packs.length;i++){
+    var rules = DATA.packs[i].rules;
+    for(var j=0;j<rules.length;j++){ if(rules[j].id===id) return rules[j]; }
+  }
   return null;
 }
 
@@ -279,6 +281,57 @@ function nextPackAfter(p){
   return null;
 }
 
+/* ---------- on-demand recap ---------- */
+var RECAP_SIZE = 12;
+
+function shuffled(arr){
+  var a = arr.slice();
+  for(var i=a.length-1;i>0;i--){
+    var j = Math.floor(Math.random()*(i+1));
+    var tmp=a[i]; a[i]=a[j]; a[j]=tmp;
+  }
+  return a;
+}
+
+// Tracks worth recapping: anything with at least one graded drill, whether
+// or not it's been marked done.
+function recapCandidatePacks(){
+  var doneMap = getDoneMap();
+  return orderedPacks().filter(function(p){ return doneMap[p.id] || packProgress(p); });
+}
+
+function hasRecapMaterial(){ return recapCandidatePacks().length > 0; }
+
+function startRecap(){
+  var packs = recapCandidatePacks();
+  var stuckPool = [], gotPool = [];
+  packs.forEach(function(p){
+    var g; try{ g = JSON.parse(localStorage.getItem("lt-review:"+p.id) || "{}"); }catch(e){ g = {}; }
+    p.drills.forEach(function(d){
+      if(g[d.id]==="stuck") stuckPool.push(d);
+      else if(g[d.id]==="got") gotPool.push(d);
+    });
+  });
+  // Weight toward the ones marked "stuck" first, fill the rest at random
+  // from everything else already covered, then mix the order.
+  var picked = shuffled(stuckPool).slice(0, RECAP_SIZE);
+  if(picked.length < RECAP_SIZE){
+    picked = picked.concat(shuffled(gotPool).slice(0, RECAP_SIZE - picked.length));
+  }
+  picked = shuffled(picked);
+
+  var ruleIds = {};
+  picked.forEach(function(d){ (d.rules||[]).forEach(function(rid){ ruleIds[rid]=true; }); });
+  var rules = Object.keys(ruleIds).map(ruleById).filter(Boolean).sort(function(a,b){ return a.track-b.track; });
+
+  pack = {id:"recap", label:"Recap", recap:true, drills:picked, rules:rules, tracks:[]};
+  ruleFilterId = null; ruleFilterLabel = null; focusRuleId = null;
+  grades = {};
+  queue = picked.slice();
+  idx = 0; revealedSteps = 0; answerShown = false; usedHint = false;
+  view = picked.length ? "drill" : "summary";
+}
+
 /* ---------- navigation ---------- */
 function enterHome(){
   pack = null; view = "home"; homeJustEntered = true; render();
@@ -293,6 +346,14 @@ function openPack(p, opts){
   render();
 }
 
+// Where a plain (unfiltered) session should pick up: the first drill in the
+// pool that hasn't been graded yet. Grading always happens in pool order, so
+// the graded ids form a prefix of the pool and this is a genuine "stopped here".
+function resumeIndex(pool){
+  for(var i=0;i<pool.length;i++){ if(grades[pool[i].id]===undefined) return i; }
+  return pool.length;
+}
+
 function startSession(opts){
   opts = opts || {};
   var pool = pack.drills;
@@ -301,12 +362,14 @@ function startSession(opts){
     ruleFilterId = opts.ruleFilter;
     var r = ruleById(opts.ruleFilter);
     ruleFilterLabel = r ? r.title : opts.ruleFilter;
+    idx = 0;
   } else {
     ruleFilterId = null; ruleFilterLabel = null;
+    idx = opts.restart ? 0 : resumeIndex(pool);
   }
   queue = pool.slice();
-  idx = 0; revealedSteps = 0; answerShown = false; usedHint = false;
-  view = pool.length ? "drill" : "rules";
+  revealedSteps = 0; answerShown = false; usedHint = false;
+  view = queue.length ? (idx < queue.length ? "drill" : "summary") : "rules";
 }
 
 function canGoBack(){
@@ -433,6 +496,12 @@ function renderHome(){
     html += '<div class="continue-card done-all"><div class="meta"><div class="lbl">All 88 tracks marked done</div><div class="sub">Revisit any track below for another pass.</div></div></div>';
   }
 
+  if(hasRecapMaterial()){
+    var n = recapCandidatePacks().length;
+    html += '<div class="continue-card" id="recapCard"><div class="meta"><div class="lbl">Recap practice</div><div class="sub">A mixed, on-demand check across the '+n+' track'+(n===1?'':'s')+' you\'ve covered &mdash; weighted toward what you got stuck on.</div></div>' +
+      '<button class="btn ghost small" id="recapBtn">Start &rarr;</button></div>';
+  }
+
   DATA.sections.forEach(function(sec, i){
     var secPacks = orderedPacks().filter(function(p){ return p.sectionIndex===i; });
     if(!secPacks.length) return;
@@ -539,6 +608,9 @@ function renderSummary(){
 }
 
 function summaryBarHtml(){
+  if(pack.recap){
+    return bar('<button class="btn ghost" id="topHomeBtn2">All tracks</button><button class="btn primary" id="newRecapBtn">New recap &rarr;</button>');
+  }
   if(ruleFilterId){
     return bar('<button class="btn primary" id="backToFullBtn">Back to Track '+pack.tracks[0]+'</button>');
   }
@@ -659,6 +731,8 @@ function wire(){
     var p = DATA.packs.filter(function(x){return x.id===pid;})[0];
     if(p) openPack(p);
   });
+  on('recapBtn', function(){ startRecap(); render(); });
+  on('newRecapBtn', function(){ startRecap(); render(); });
 
   on('homeSearch', function(ev){ homeFilter = ev.target.value; render(); }, 'input');
 
@@ -686,7 +760,7 @@ function wire(){
     view = queue.length ? "drill" : "summary";
     render();
   });
-  on('restartBtn', function(){ startSession(); render(); });
+  on('restartBtn', function(){ startSession({restart:true}); render(); });
   on('continueBtn', function(){
     setDone(pack.id, true);
     var next = nextPackAfter(pack);
