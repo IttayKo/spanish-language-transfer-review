@@ -441,7 +441,8 @@ function tabsHtml(){
 function packCardHtml(p){
   var prog = packProgress(p);
   var done = isDone(p.id);
-  var progHtml = prog ? '<span class="prog '+(prog.done>=prog.total?"done":"")+'">'+prog.done+'/'+prog.total+'</span>' : '<span class="prog">'+p.drills.length+' drills</span>';
+  var progHtml = prog ? '<span class="prog '+(prog.done>=prog.total?"done":"")+'">'+prog.done+'/'+prog.total+'</span>' :
+    (p.drills.length ? '<span class="prog">'+p.drills.length+' drills</span>' : '<span class="prog">read first</span>');
   var check = done ? '&#10003;' : '';
   var rowLabel = 'Track '+p.tracks[0]+(p.blurb ? ' — '+p.blurb : '');
   return '<div class="packcard'+(done?' done':'')+'" id="pack-'+esc(p.id)+'" data-pid="'+esc(p.id)+'">' +
@@ -623,7 +624,8 @@ function summaryBarHtml(){
 }
 
 function rulesBarHtml(){
-  return bar('<button class="btn primary" id="backToDrillsBtn">Back to drills</button>');
+  var label = queue.length ? "Back to drills" : "All tracks";
+  return bar('<button class="btn primary" id="backToDrillsBtn">'+label+'</button>');
 }
 
 function render(){
@@ -700,7 +702,7 @@ function wire(){
   on('topHomeBtn', enterHome);
   on('topHomeBtn2', enterHome);
   on('homeBtn', enterHome);
-  on('tabDrills', function(){ view = queue.length ? "drill" : "home"; if(!queue.length){ enterHome(); return; } render(); });
+  on('tabDrills', function(){ view = "drill"; render(); });
   on('tabRules', function(){ view = "rules"; render(); });
 
   onAll('.rowbtn', function(ev, el){

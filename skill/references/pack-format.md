@@ -10,7 +10,7 @@ A pack is one JSON file. The player reads nothing else.
 | `tracks` | yes | Array of track numbers in the pack, ascending. Drives the filter chips. |
 | `generated` | no | ISO date, for your own reference. |
 | `rules` | yes | Array of rule objects. May be empty only if the tracks genuinely explain nothing new. |
-| `drills` | yes | Array of drill objects. Non-empty. |
+| `drills` | yes | Array of drill objects. Non-empty for a normal teaching track. The one exception in this repo is track 1, the course's own introduction - it's pure orientation with no Spanish in it at all, so its pack has `rules` only (the Thinking Method's own principles, plus how to use this app) and an empty `drills` array. The player falls back to the Rules view for a pack with no drills, and the Drills tab shows an empty state rather than a quiz. Don't manufacture drills just to satisfy this row - an empty array is the honest choice when a track teaches no construction. |
 
 ## Rule object
 
@@ -78,7 +78,7 @@ Punctuate normally. Don't add the Spanish inverted marks to the English.
 `data/combined-final.json` holds every pack merged together, one pack per
 individual track (`{id: "t21", tracks: [21], ...}`), each rule id namespaced
 per-pack (`t21__perfect-ado`) to avoid collisions across tracks, plus a
-top-level `sections` array grouping tracks into 11 thematic parts with a
+top-level `sections` array grouping tracks into 12 thematic parts with a
 `start`/`end` track range and a one-sentence `focus` each, and a `blurb` field
 per pack with a one-line description of what that track teaches. `app/build_app.py`
 embeds this file directly into the player HTML.
