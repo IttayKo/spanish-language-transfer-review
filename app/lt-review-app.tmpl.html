@@ -188,12 +188,50 @@ main{flex:1;padding:1.1rem 1rem calc(var(--bar) + 1.5rem);background:var(--field
 .rule ul{margin:0 0 .7rem;padding-left:1.1rem}
 .rule ul li{font-size:var(--fs-small);color:var(--muted);margin-bottom:.25rem}
 .rule .src{font-size:var(--fs-caption);color:var(--muted)}
-.rule .practicebtn{
+.rule .practicebtn, .gpractice{
   margin-top:.6rem;appearance:none;border:1px solid var(--field-edge);background:transparent;color:var(--ochre);
   border-radius:var(--radius-sm);padding:.4rem .7rem;font-size:var(--fs-small);cursor:pointer;font-family:var(--sans);
   min-height:2.75rem;display:inline-flex;align-items:center;justify-content:flex-start;text-align:left;
 }
-.rule .practicebtn:hover{border-color:var(--ochre)}
+.rule .practicebtn:hover, .gpractice:hover{border-color:var(--ochre)}
+
+/* glossary */
+.glossrow{border-bottom:1px solid var(--field-edge)}
+.glosslist .glossrow:last-child{border-bottom:none}
+.glosshead{
+  appearance:none;border:none;background:none;width:100%;
+  display:flex;align-items:center;gap:.7rem;
+  padding:.85rem 0;margin:0;cursor:pointer;min-height:2.75rem;
+  color:var(--on-dark);font-family:var(--sans);text-align:left;
+}
+.glosshead:hover{background:var(--field-deep)}
+.glosshead .num{
+  font-family:var(--serif);font-weight:700;font-size:var(--fs-heading-sm);color:var(--ochre);
+  min-width:2rem;text-align:center;
+}
+.glosshead .t{flex:1;min-width:0;font-size:var(--fs-small);line-height:1.35;overflow-wrap:break-word}
+.glosshead .n{font-size:var(--fs-caption);color:var(--muted);white-space:nowrap}
+.glosshead .chev{color:var(--muted);font-size:var(--fs-caption);width:.9rem;text-align:center;flex:none}
+.glosshead[aria-expanded="true"] .t{color:var(--ochre)}
+.glosspanel{padding:0 0 1.1rem 2.7rem}
+.glosspanel p{margin:0 0 .6rem;font-size:var(--fs-small);line-height:1.5;color:var(--on-dark)}
+.glosspanel ul{margin:0 0 .7rem;padding-left:1.1rem}
+.glosspanel ul li{font-size:var(--fs-small);color:var(--muted);margin-bottom:.25rem}
+.glosspanel .where{font-size:var(--fs-caption);color:var(--muted);line-height:1.5;margin-bottom:.2rem}
+.glosspanel .variant{border-left:2px solid var(--field-edge);padding-left:.75rem;margin:0 0 .7rem}
+.glosspanel .variant .vlbl{
+  font-size:var(--fs-caption);text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-bottom:.25rem;
+}
+.glosspanel .variant p:last-child{margin-bottom:0}
+.practicerow{display:flex;flex-wrap:wrap;gap:.45rem}
+.glossjump{
+  appearance:none;background:none;border:none;border-bottom:1px solid var(--field-edge);
+  width:100%;display:flex;align-items:center;gap:.5rem;
+  padding:.85rem 0;margin:0 0 .3rem;cursor:pointer;min-height:2.75rem;
+  color:var(--ochre);font-family:var(--sans);font-size:var(--fs-small);text-align:left;
+}
+.glossjump:hover{background:var(--field-deep)}
+.glossjump .arrow{margin-left:auto;opacity:.7}
 
 /* summary */
 .summary h2{font-family:var(--serif);font-size:1.4rem;margin:.2rem 0 1rem;color:var(--on-dark)}
@@ -216,7 +254,8 @@ var DATA = JSON.parse(document.getElementById('pack-data').textContent);
 var pack = null, view = "home", queue = [], idx = 0, revealedSteps = 0, answerShown = false,
     grades = {}, usedHint = false, highlightRule = null, focusRuleId = null,
     homeFilter = "", homeJustEntered = false, lastRenderedView = null,
-    ruleFilterId = null, ruleFilterLabel = null, lastPushedView = null, suppressPush = false;
+    ruleFilterId = null, ruleFilterLabel = null, lastPushedView = null, suppressPush = false,
+    glossaryFilter = "", openFamily = null;
 
 function prefersReducedMotion(){
   try{ return window.matchMedia('(prefers-reduced-motion: reduce)').matches; }catch(e){ return false; }
@@ -332,7 +371,80 @@ function startRecap(){
   view = picked.length ? "drill" : "summary";
 }
 
+/* ---------- the rule glossary ----------
+   The course teaches a mechanism once and then keeps coming back to it, and
+   every track that leans on an earlier rule carries its own copy of that rule
+   so its Rules tab stands alone. Read flat, that's ~200 near-identical rows,
+   so the glossary groups the copies by the rule's `family` and shows each
+   concept once: the fullest wording any track gives it, every track it turns
+   up in, and any track that words it differently rather than just longer. */
+function familyOf(r){ return r.family || r.id.split('__')[1].replace(/-\d+$/, ""); }
+
+var GLOSSARY = (function(){
+  var byFamily = {}, list = [];
+  orderedPacks().forEach(function(p){
+    (p.rules||[]).forEach(function(r){
+      var fam = familyOf(r), e = byFamily[fam];
+      if(!e){ e = byFamily[fam] = {family:fam, origin:r.track, sectionIndex:p.sectionIndex, copies:[]}; list.push(e); }
+      var n = 0;
+      (p.drills||[]).forEach(function(d){ if((d.rules||[]).indexOf(r.id) !== -1) n++; });
+      e.copies.push({packId:p.id, track:p.tracks[0], rule:r, drills:n});
+      // The introducing copy is the one sitting in the track that taught it;
+      // it decides which section of the course this rule belongs to.
+      if(p.tracks[0] === r.track){ e.sectionIndex = p.sectionIndex; }
+      if(r.track < e.origin){ e.origin = r.track; }
+    });
+  });
+  list.forEach(function(e){
+    e.copies.sort(function(a,b){ return a.track - b.track; });
+    // The wording to lead with is the fullest one the course ever gives,
+    // which is normally the last track to revisit it.
+    var main = e.copies[0];
+    e.copies.forEach(function(c){
+      if(c.rule.explanation.length >= main.rule.explanation.length) main = c;
+    });
+    e.main = main;
+    e.title = main.rule.title;
+    e.totalDrills = 0;
+    e.tracks = e.copies.map(function(c){ e.totalDrills += c.drills; return c.track; });
+    // Only worth showing separately if a track says something the leading
+    // wording doesn't already contain.
+    var seen = {}, hay = [e.title, e.family];
+    e.variants = [];
+    e.copies.forEach(function(c){
+      hay.push(c.rule.explanation);
+      (c.rule.examples||[]).forEach(function(x){ hay.push(x); });
+      if(c === main || seen[c.rule.explanation]) return;
+      seen[c.rule.explanation] = true;
+      if(main.rule.explanation.indexOf(c.rule.explanation) === -1){
+        e.variants.push({track:c.track, text:c.rule.explanation});
+      }
+    });
+    e.tracks.forEach(function(t){ hay.push("track " + t); });
+    e.hay = hay.join(" \n ").toLowerCase();
+  });
+  list.sort(function(a,b){
+    if(a.origin !== b.origin) return a.origin - b.origin;
+    return a.title.localeCompare(b.title);
+  });
+  list.forEach(function(e, i){ e.idx = i; });
+  return list;
+})();
+
+function glossaryMatches(q){
+  q = (q||"").trim().toLowerCase();
+  if(!q) return GLOSSARY;
+  return GLOSSARY.filter(function(e){ return e.hay.indexOf(q) !== -1; });
+}
+
 /* ---------- navigation ---------- */
+function enterGlossary(prefill){
+  pack = null;
+  view = "glossary";
+  if(typeof prefill === "string"){ glossaryFilter = prefill; openFamily = null; }
+  render();
+}
+
 function enterHome(){
   pack = null; view = "home"; homeJustEntered = true; render();
 }
@@ -414,11 +526,16 @@ function nextStep(){
 function bar(html){ return '<div class="bar" id="bar">' + html + '</div>'; }
 
 function topBarHtml(){
+  if(view==="glossary"){
+    return '<div id="top"><h1>All rules</h1>' +
+      '<button class="iconbtn" id="topHomeBtn" title="Back to the track list">All tracks</button></div>';
+  }
   var title = pack ? esc(pack.label) : "Complete Spanish";
   // "Back" undoes one step within the current track (a reveal, a piece, a drill).
   // "All tracks" always exits the track entirely and returns to the track list.
   var back = (pack && canGoBack()) ? '<button class="iconbtn" id="backBtn" title="Undo the last reveal">&#8630; Undo</button>' : '';
-  var home = pack ? '<button class="iconbtn" id="topHomeBtn" title="Leave this track and return to the list">All tracks</button>' : '';
+  var home = pack ? '<button class="iconbtn" id="topHomeBtn" title="Leave this track and return to the list">All tracks</button>'
+                  : '<button class="iconbtn" id="glossaryBtn" title="Browse every rule in the course">All rules</button>';
   return '<div id="top">' + back + '<h1>'+title+'</h1>' + home + '</div>';
 }
 
@@ -487,6 +604,14 @@ function renderHome(){
       }
       return matchesBasic || matchesRules;
     });
+    // The track list answers "which track was that in?"; a query that hits rule
+    // text usually means the learner wants the rule itself, which lives in the
+    // glossary, so offer the jump instead of making them find it again there.
+    var ruleHits = glossaryMatches(q).length;
+    if(ruleHits){
+      html += '<button class="glossjump" id="glossJumpBtn">' + ruleHits + ' rule' + (ruleHits===1?'':'s') +
+        ' match in All rules <span class="arrow" aria-hidden="true">&rarr;</span></button>';
+    }
     html += '<div class="packlist">' + (filtered.map(packCardHtml).join('') || '<div class="empty">No tracks match that search.</div>') + '</div>';
     return html;
   }
@@ -514,6 +639,78 @@ function renderHome(){
     html += '<div class="packlist">' + secPacks.map(packCardHtml).join('') + '</div>';
   });
 
+  return html;
+}
+
+function trackListText(tracks){
+  if(tracks.length===1) return 'track ' + tracks[0];
+  return 'tracks ' + tracks.slice(0,-1).join(', ') + ' and ' + tracks[tracks.length-1];
+}
+
+function glossaryEntryHtml(e, i, isOpen){
+  var rowId = 'gl-' + i, panelId = 'glp-' + i;
+  var revisits = e.copies.filter(function(c){ return c.track !== e.origin; }).map(function(c){ return c.track; });
+  var countHtml = revisits.length ? '<span class="n">' + (revisits.length+1) + ' tracks</span>' : '';
+  var head = '<button class="glosshead" id="'+rowId+'" data-fam="'+esc(e.family)+'" aria-expanded="'+(isOpen?'true':'false')+'" aria-controls="'+panelId+'">' +
+    '<span class="num">'+e.origin+'</span>' +
+    '<span class="t">'+esc(e.title)+'</span>' + countHtml +
+    '<span class="chev" aria-hidden="true">'+(isOpen?'&#9662;':'&#9656;')+'</span>' +
+    '</button>';
+  if(!isOpen) return '<div class="glossrow">' + head + '</div>';
+
+  var r = e.main.rule;
+  var body = '<p>'+esc(r.explanation)+'</p>';
+  if(r.examples && r.examples.length){
+    body += '<ul>' + r.examples.map(function(x){ return '<li>'+esc(x)+'</li>'; }).join('') + '</ul>';
+  }
+  body += e.variants.map(function(v){
+    return '<div class="variant"><div class="vlbl">Track '+v.track+' puts it this way</div><p>'+esc(v.text)+'</p></div>';
+  }).join('');
+  body += '<div class="where">Introduced in track '+e.origin +
+    (revisits.length ? ' &middot; comes back in ' + trackListText(revisits) : '') + '.</div>';
+
+  var targets = e.copies.filter(function(c){ return c.drills > 0; });
+  if(!targets.length){
+    body += '<div class="where">No drills practise this one on its own.</div>';
+  } else if(targets.length===1){
+    body += '<div class="practicerow"><button class="gpractice" data-pid="'+esc(targets[0].packId)+'" data-ruleid="'+esc(targets[0].rule.id)+'">' +
+      'Practise this rule, track '+targets[0].track+' &rarr;</button></div>';
+  } else {
+    body += '<div class="where">Practise it with the drills from:</div>' +
+      '<div class="practicerow">' + targets.map(function(c){
+        return '<button class="gpractice" data-pid="'+esc(c.packId)+'" data-ruleid="'+esc(c.rule.id)+'">' +
+          'Track '+c.track+' &middot; '+c.drills+' &rarr;</button>';
+      }).join('') + '</div>';
+  }
+  return '<div class="glossrow">' + head + '<div class="glosspanel" id="'+panelId+'">' + body + '</div></div>';
+}
+
+function renderGlossary(){
+  var q = glossaryFilter.trim();
+  var html = '<div class="home-hero"><p>' + GLOSSARY.length + ' rules across the whole course. A rule the course comes back to is listed once here, under the track that first taught it.</p></div>';
+  html += '<div class="searchrow"><input id="glossarySearch" type="search" aria-label="Search all rules" placeholder="Search rules&hellip;" value="'+esc(glossaryFilter)+'"></div>';
+
+  if(q){
+    var found = glossaryMatches(q);
+    if(!found.length) return html + '<div class="empty">No rules match that search.</div>';
+    // One hit is almost always the one you were looking for, so open it.
+    var only = (found.length===1) ? found[0].family : null;
+    html += '<div class="section-head"><h3>'+found.length+' rule'+(found.length===1?'':'s')+' match</h3></div>';
+    html += '<div class="glosslist">' + found.map(function(e){
+      return glossaryEntryHtml(e, e.idx, openFamily===e.family || only===e.family);
+    }).join('') + '</div>';
+    return html;
+  }
+
+  DATA.sections.forEach(function(sec, si){
+    var entries = GLOSSARY.filter(function(e){ return e.sectionIndex===si; });
+    if(!entries.length) return;
+    html += '<div class="section-head"><h3>'+esc(sec.title)+' <span style="font-size:var(--fs-caption);color:var(--muted);font-weight:400">'+entries.length+'</span></h3>' +
+      '<p>' + (sec.end!==sec.start ? 'Tracks '+sec.start+'&ndash;'+sec.end : 'Track '+sec.start) + '</p></div>';
+    html += '<div class="glosslist">' + entries.map(function(e){
+      return glossaryEntryHtml(e, e.idx, openFamily===e.family);
+    }).join('') + '</div>';
+  });
   return html;
 }
 
@@ -644,6 +841,8 @@ function render(){
 
   if(view==="home"){
     html += renderHome();
+  } else if(view==="glossary"){
+    html += renderGlossary();
   } else if(view==="drill"){
     html += renderDrill();
   } else if(view==="rules"){
@@ -700,6 +899,18 @@ function render(){
 function wire(){
   on('backBtn', goBack);
   on('topHomeBtn', enterHome);
+  on('glossaryBtn', function(){ enterGlossary(); });
+  on('glossJumpBtn', function(){ enterGlossary(homeFilter); });
+  on('glossarySearch', function(ev){ glossaryFilter = ev.target.value; render(); }, 'input');
+  onAll('.glosshead', function(ev, el){
+    var fam = el.getAttribute('data-fam');
+    openFamily = (openFamily===fam) ? null : fam;
+    render();
+  });
+  onAll('.gpractice', function(ev, el){
+    var p = DATA.packs.filter(function(x){ return x.id===el.getAttribute('data-pid'); })[0];
+    if(p) openPack(p, {ruleFilter: el.getAttribute('data-ruleid')});
+  });
   on('topHomeBtn2', enterHome);
   on('homeBtn', enterHome);
   on('tabDrills', function(){ view = "drill"; render(); });
@@ -773,6 +984,7 @@ function wire(){
 }
 
 window.addEventListener('popstate', function(ev){
+  if(view==="glossary"){ suppressPush = true; enterHome(); suppressPush = false; return; }
   if(pack){ suppressPush = true; goBack(); suppressPush = false; }
 });
 
