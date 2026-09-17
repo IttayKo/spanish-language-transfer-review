@@ -463,9 +463,10 @@ function continueCardHtml(p){
 }
 
 function renderHome(){
+  var totalPacks = DATA.packs.length;
   var doneCount = Object.keys(getDoneMap()).length;
-  var donePercent = Math.round(doneCount/88*100);
-  var html = '<div class="home-hero"><p>'+doneCount+' of 88 tracks done &middot; '+donePercent+'%</p></div>';
+  var donePercent = Math.round(doneCount/totalPacks*100);
+  var html = '<div class="home-hero"><p>'+doneCount+' of '+totalPacks+' tracks done &middot; '+donePercent+'%</p></div>';
   html += '<div class="searchrow"><input id="homeSearch" type="search" aria-label="Search tracks or grammar" placeholder="Search tracks or grammar&hellip;" value="'+esc(homeFilter)+'"></div>';
 
   var q = homeFilter.trim().toLowerCase();
@@ -493,7 +494,7 @@ function renderHome(){
   if(rec){
     html += continueCardHtml(rec);
   } else {
-    html += '<div class="continue-card done-all"><div class="meta"><div class="lbl">All 88 tracks marked done</div><div class="sub">Revisit any track below for another pass.</div></div></div>';
+    html += '<div class="continue-card done-all"><div class="meta"><div class="lbl">All '+totalPacks+' tracks marked done</div><div class="sub">Revisit any track below for another pass.</div></div></div>';
   }
 
   if(hasRecapMaterial()){
@@ -722,7 +723,7 @@ function wire(){
 
     var rec = nextRecommendedTrack();
     var newContinueHtml = rec ? continueCardHtml(rec) :
-      '<div class="continue-card done-all" id="continueCard"><div class="meta"><div class="lbl">All 88 tracks marked done</div><div class="sub">Revisit any track below for another pass.</div></div></div>';
+      '<div class="continue-card done-all" id="continueCard"><div class="meta"><div class="lbl">All '+DATA.packs.length+' tracks marked done</div><div class="sub">Revisit any track below for another pass.</div></div></div>';
     var existingContinue = document.getElementById('continueCard');
     if(existingContinue){ existingContinue.outerHTML = newContinueHtml; }
   });

@@ -1,7 +1,7 @@
 # Complete Spanish — Review
 
 A single-page review app for the Language Transfer "Complete Spanish" audio
-course: 88 tracks (2–89), grouped into 10 thematic sections, each with rules
+course: 89 tracks (2–90), grouped into 11 thematic sections, each with rules
 (grammar explanations in the teacher's own derivational language) and
 speaking drills (English prompt in, spoken Spanish out — never the reverse).
 
@@ -19,7 +19,7 @@ build step, no server, no dependencies.
 | `app/merge.py` | Combines a directory of per-track-range pack JSON files into one dataset, namespacing rule ids per pack to avoid id collisions. |
 | `app/split_per_track.py` | Splits a merged multi-track-range dataset into one pack per individual track. |
 | `app/enrich.py` | Adds each track's one-line description (`blurb`) and section grouping (`sectionIndex`) to the dataset. |
-| `data/combined-final.json` | The full dataset: 88 packs (one per track), each with its rules + drills, plus a top-level `sections` array (10 thematic groupings) and per-track blurbs. This is what's embedded into `index.html`. |
+| `data/combined-final.json` | The full dataset: 89 packs (one per track), each with its rules + drills, plus a top-level `sections` array (11 thematic groupings) and per-track blurbs. This is what's embedded into `index.html`. |
 | `skill/SKILL.md` | The methodology used to mine rules/drills from the raw course transcript into pack JSON — read this before generating packs for a different course or additional tracks. |
 | `skill/references/pack-format.md` | Full schema reference for a pack JSON file. |
 | `skill/scripts/extract_track.py` | Pulls a track range out of a transcript file (plain text or PDF). |

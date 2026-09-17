@@ -78,7 +78,7 @@ Punctuate normally. Don't add the Spanish inverted marks to the English.
 `data/combined-final.json` holds every pack merged together, one pack per
 individual track (`{id: "t21", tracks: [21], ...}`), each rule id namespaced
 per-pack (`t21__perfect-ado`) to avoid collisions across tracks, plus a
-top-level `sections` array grouping tracks into 10 thematic parts with a
+top-level `sections` array grouping tracks into 11 thematic parts with a
 `start`/`end` track range and a one-sentence `focus` each, and a `blurb` field
 per pack with a one-line description of what that track teaches. `app/build_app.py`
 embeds this file directly into the player HTML.
