@@ -674,9 +674,9 @@ function glossaryEntryHtml(e, i, isOpen){
     body += '<div class="where">No drills practise this one on its own.</div>';
   } else if(targets.length===1){
     body += '<div class="practicerow"><button class="gpractice" data-pid="'+esc(targets[0].packId)+'" data-ruleid="'+esc(targets[0].rule.id)+'">' +
-      'Practise this rule, track '+targets[0].track+' &rarr;</button></div>';
+      'Practice this rule &middot; track '+targets[0].track+' &rarr;</button></div>';
   } else {
-    body += '<div class="where">Practise it with the drills from:</div>' +
+    body += '<div class="where">Practice it with the drills from:</div>' +
       '<div class="practicerow">' + targets.map(function(c){
         return '<button class="gpractice" data-pid="'+esc(c.packId)+'" data-ruleid="'+esc(c.rule.id)+'">' +
           'Track '+c.track+' &middot; '+c.drills+' &rarr;</button>';
