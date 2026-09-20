@@ -46,9 +46,17 @@ rejected before anything is written.
   same idea applied more lightly: two drillable rules, two awareness-only
   ones left undrilled.
 
+It installs to the home screen and works offline (an unofficial companion,
+not a Language Transfer product) — the service worker always fetches the
+page itself from the network first and only falls back to its cached copy
+when there's no connection, so being installed never means being stuck on an
+old build. See `app/sw.tmpl.js` for the update strategy and its kill switch.
+
 **Live app:** `index.html` is one dependency-free file with the whole
 dataset embedded — open it directly, or deploy it to any static host
-(Vercel, GitHub Pages, ...).
+(Vercel, GitHub Pages, ...). `manifest.json`, `sw.js` and `icons/` at the
+repo root make it installable; they're static (or, for `sw.js`, generated —
+see below) and need no build step of their own to serve.
 
 ## Working on it
 
@@ -56,8 +64,15 @@ Edit `app/lt-review-app.tmpl.html` (behavior/UI) and `data/combined-final.json`
 (content), never `index.html` directly, then rebuild:
 
 ```bash
-python3 app/build_app.py   # data/combined-final.json + the template -> index.html
+python3 app/build_app.py   # data/combined-final.json + the template -> index.html, sw.js
 ```
+
+The same command also regenerates `sw.js` from `app/sw.tmpl.js`, stamping in
+a build id hashed from the freshly built `index.html` — so any content or
+code change ships a byte-different service worker, which is what makes the
+browser pick it up as an update on its own. Edit `app/sw.tmpl.js`, never
+`sw.js` directly. `manifest.json` and `icons/` are plain static files with no
+build step of their own — edit them by hand (name, theme color, artwork).
 
 - `skill/references/pack-format.md` — the full data schema (rule, drill,
   `family`, section).
@@ -80,12 +95,17 @@ node). It runs `validate_pack.py` over all 90 packs, `validate_dataset.py`
 across the dataset, a static check that the template still reads/writes the
 `lt-review:<packId>` / `lt-review-done` localStorage keys real users'
 progress lives in (there's no server copy — silently renaming either wipes
-everyone), confirms `index.html` is exactly what `build_app.py` currently
-produces (reported as a warning while other passes are still mid-flight,
-promotable to a hard failure with `LT_STRICT_BUILD=1`), and drives the app
-in headless Chromium through opening a track, grading a drill, reaching the
-summary, and practicing a rule from the "All rules" glossary — plus seeding
-a known progress blob and confirming it's read back and resumed correctly,
-and a full export/import round trip (including that a malformed file is
-rejected without touching existing progress), so a build that breaks any of
-this fails loudly instead of shipping.
+everyone) and that `app/sw.tmpl.js` still has its kill switch and
+network-first document fetch, confirms `index.html` and `sw.js` are exactly
+what `build_app.py` currently produces (reported as a warning while other
+passes are still mid-flight, promotable to a hard failure with
+`LT_STRICT_BUILD=1`), and drives the app in headless Chromium through opening
+a track, grading a drill, reaching the summary, and practicing a rule from
+the "All rules" glossary — plus seeding a known progress blob and confirming
+it's read back and resumed correctly, a full export/import round trip
+(including that a malformed file is rejected without touching existing
+progress), and the PWA layer (manifest present, service worker takes
+control, the app still renders while offline with progress intact, and —
+the one failure mode that matters most here — a fresh build is actually
+picked up the next time it's back online instead of the cached one), so a
+build that breaks any of this fails loudly instead of shipping.

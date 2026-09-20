@@ -4,6 +4,14 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Complete Spanish — Review</title>
+<meta name="description" content="An unofficial companion for practicing Language Transfer's Complete Spanish course: speaking drills and a searchable grammar glossary.">
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#0d1b1f">
+<link rel="icon" href="/icons/favicon-32.png" sizes="32x32" type="image/png">
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="CS Review">
 <style>
 :root{
   --field:#12262b; --field-deep:#0d1b1f; --field-edge:#517880;
@@ -1258,6 +1266,16 @@ window.addEventListener('popstate', function(ev){
 
 render();
 })();
+</script>
+<script>
+// Installable/offline (PWA). See app/sw.tmpl.js for the update strategy -
+// short version: the document is always network-first, so being installed
+// never means being stuck on an old build.
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", function () {
+    navigator.serviceWorker.register("/sw.js").catch(function () {});
+  });
+}
 </script>
 </body>
 </html>

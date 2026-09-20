@@ -1,7 +1,9 @@
 #!/usr/bin/env node
 // Browser smoke test for index.html: the golden path, the localStorage
-// progress contract that live users' saved progress depends on, and the
-// export/import round trip that is meant to be the escape hatch for it.
+// progress contract that live users' saved progress depends on, the
+// export/import round trip that is meant to be the escape hatch for it, and
+// the installable/offline (PWA) layer - including that a fresh build is
+// still picked up after the service worker has cached an older one.
 //
 // Playwright/Chromium are pre-installed outside this project's node_modules
 // (there is no package.json dependency, no install step): run this with
@@ -18,19 +20,41 @@ const os = require('os');
 const path = require('path');
 const http = require('http');
 
-const INDEX_PATH = process.env.LT_INDEX_HTML || path.join(__dirname, '..', 'index.html');
+const REPO_ROOT = path.join(__dirname, '..');
+const INDEX_PATH = process.env.LT_INDEX_HTML || path.join(REPO_ROOT, 'index.html');
 
 function fail(msg) {
   console.error('FAIL: ' + msg);
   process.exitCode = 1;
 }
 
-function startServer(html) {
+// Mimics just enough of the real static deploy (see vercel.json) for the PWA
+// bits to work in the test: /sw.js, /manifest.json and /icons/* are served
+// as real files with real content types (a service worker registration is
+// rejected by the browser if it doesn't come back as a JS MIME type), and
+// every other path falls back to the built index.html, same as before.
+const STATIC_TYPES = { '.js': 'application/javascript', '.json': 'application/json', '.png': 'image/png' };
+// `state.html` is mutable so a later test can simulate a fresh deploy
+// landing (swap the bytes served for "/") without restarting the server.
+function startServer(state) {
   return new Promise((resolve) => {
     const server = http.createServer((req, res) => {
-      if (req.url === '/favicon.ico') { res.writeHead(204); res.end(); return; }
+      const urlPath = (req.url || '/').split('?')[0];
+      if (urlPath === '/favicon.ico') { res.writeHead(204); res.end(); return; }
+
+      if (urlPath === '/sw.js' || urlPath === '/manifest.json' || urlPath.indexOf('/icons/') === 0) {
+        const filePath = path.join(REPO_ROOT, urlPath);
+        const ext = path.extname(filePath);
+        fs.readFile(filePath, (err, data) => {
+          if (err) { res.writeHead(404); res.end(); return; }
+          res.writeHead(200, { 'Content-Type': STATIC_TYPES[ext] || 'application/octet-stream' });
+          res.end(data);
+        });
+        return;
+      }
+
       res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-      res.end(html);
+      res.end(state.html);
     });
     server.listen(0, '127.0.0.1', () => resolve(server));
   });
@@ -51,7 +75,8 @@ async function main() {
     return;
   }
 
-  const server = await startServer(html);
+  const serverState = { html };
+  const server = await startServer(serverState);
   const port = server.address().port;
   const url = `http://127.0.0.1:${port}/`;
 
@@ -326,6 +351,59 @@ async function main() {
       `got ${JSON.stringify(restoredGrades)}, expected ${JSON.stringify(expectedSeedGrades)}`);
 
     check(pageErrors.length === 0, 'no page/console errors during the export/import round trip',
+      pageErrors.join('\n  '));
+
+    // ==================== PWA: manifest, service worker, offline ====================
+    // The one way this feature can go wrong is worse than not shipping it:
+    // a document cached badly could pin an installed user to a stale build
+    // forever. So this checks both halves - offline genuinely works, AND
+    // coming back online picks up a fresh build rather than the cached one -
+    // plus that progress (feature 1's whole point) survives the trip.
+    check(await page.locator('link[rel="manifest"]').count() > 0, 'page links a web app manifest');
+    const manifestHref = await page.$eval('link[rel="manifest"]', (el) => el.getAttribute('href'));
+    const manifestJson = await page.evaluate((href) => fetch(href).then((r) => r.json()), manifestHref);
+    check(Array.isArray(manifestJson.icons) && manifestJson.icons.length > 0, 'manifest declares at least one icon');
+    check(!!manifestJson.name && !!manifestJson.start_url, 'manifest declares a name and a start_url');
+
+    await page.evaluate(() => navigator.serviceWorker.ready);
+    await page.reload({ waitUntil: 'load' }); // a controlled tab needs one navigation after activation
+    await page.waitForSelector('.packcard');
+    const controlled = await page.evaluate(() => !!navigator.serviceWorker.controller);
+    check(controlled, 'the page is controlled by its own service worker after registering');
+
+    // Whatever's on screen right now is from the import round trip above -
+    // note it so we can confirm the exact same thing survives being served
+    // from the offline cache below.
+    const preOfflineProg = (await page.locator(`.packcard[data-pid="${cssEscape(seedPack.id)}"] .prog`).textContent()).trim();
+
+    await context.setOffline(true);
+    await page.reload({ waitUntil: 'load' });
+    const offlineCardCount = await page.locator('.packcard').count();
+    check(offlineCardCount === DATA.packs.length,
+      'the app still loads and renders every track while offline, served from the service worker cache');
+    const offlineProg = (await page.locator(`.packcard[data-pid="${cssEscape(seedPack.id)}"] .prog`).textContent()).trim();
+    check(offlineProg === preOfflineProg,
+      'progress (feature 1) survives being served offline from the cache',
+      `got ${JSON.stringify(offlineProg)}, expected ${JSON.stringify(preOfflineProg)}`);
+    await context.setOffline(false);
+
+    // Simulate a real deploy landing while this client was offline: swap the
+    // bytes the test server hands out for "/" and confirm the very next
+    // reload fetches the fresh copy instead of quietly continuing to serve
+    // the one the service worker cached earlier - the specific failure mode
+    // this feature must never cause.
+    const newBuildMarker = 'lt-review-smoke-new-build-marker';
+    serverState.html = html.replace('</head>', `<meta name="smoke-marker" content="${newBuildMarker}"></head>`);
+    await page.reload({ waitUntil: 'load' });
+    const pickedUpNewBuild = await page.evaluate((marker) => {
+      const m = document.querySelector('meta[name="smoke-marker"]');
+      return !!m && m.getAttribute('content') === marker;
+    }, newBuildMarker);
+    check(pickedUpNewBuild,
+      'coming back online, the next load fetches the fresh build instead of the previously cached one');
+    serverState.html = html; // restore for anything else that reads the server after this
+
+    check(pageErrors.length === 0, 'no page/console errors during the PWA/offline checks',
       pageErrors.join('\n  '));
   } catch (e) {
     fail('smoke test threw: ' + (e && e.stack || e));

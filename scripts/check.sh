@@ -36,6 +36,16 @@ else
   bad "template no longer contains the literal localStorage key names 'lt-review:' and/or 'lt-review-done' in $TMPL -- if this is an intentional rename, every existing user's saved progress is about to be silently wiped. Update the key AND ship a migration, don't just rename it."
 fi
 
+# Same idea for the PWA layer: a network-first document fetch and a real
+# kill switch are the two things standing between a bad service worker
+# deploy and permanently stale installed clients.
+SW_TMPL="app/sw.tmpl.js"
+if grep -q 'KILL_SWITCH' "$SW_TMPL" && grep -q 'networkFirstDocument' "$SW_TMPL"; then
+  ok "sw.tmpl.js still has a kill switch and a network-first document fetch"
+else
+  bad "$SW_TMPL no longer contains the KILL_SWITCH toggle and/or the networkFirstDocument strategy -- a service worker that caches the document without a network-first refresh and a way to disable it can pin real users to a stale build forever."
+fi
+
 # ---------------------------------------------------------------------------
 section "Per-pack validation (skill/scripts/validate_pack.py x 90)"
 PACK_TMP_DIR="$(mktemp -d)"
@@ -88,7 +98,7 @@ else
 fi
 
 # ---------------------------------------------------------------------------
-section "Build reproducibility: does app/build_app.py currently produce the committed index.html?"
+section "Build reproducibility: does app/build_app.py currently produce the committed index.html and sw.js?"
 BUILD_TMP_DIR="$(mktemp -d)"
 cp -r app "$BUILD_TMP_DIR/app"
 mkdir -p "$BUILD_TMP_DIR/data"
@@ -105,9 +115,20 @@ else
     soft "$msg"
   fi
 fi
+if diff -q "$BUILD_TMP_DIR/sw.js" sw.js >/dev/null 2>&1; then
+  ok "sw.js is exactly what app/build_app.py produces from the current sw.tmpl.js + data (build id included)"
+else
+  sw_diff="$(diff "$BUILD_TMP_DIR/sw.js" sw.js 2>&1 | wc -l)"
+  msg="sw.js differs from a fresh build ($sw_diff diff lines) - run 'python3 app/build_app.py' and commit the result. A stale sw.js/index.html pair can pin real users to an old build, so this matters as much as index.html itself."
+  if [ "${LT_STRICT_BUILD:-0}" = "1" ]; then
+    bad "$msg"
+  else
+    soft "$msg"
+  fi
+fi
 
 # ---------------------------------------------------------------------------
-section "Browser smoke test (Playwright/Chromium, golden path + localStorage regression)"
+section "Browser smoke test (Playwright/Chromium: golden path, localStorage regression, export/import, PWA/offline)"
 if NODE_PATH=/opt/node22/lib/node_modules PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers node scripts/smoke_test.js; then
   ok "browser smoke test passed"
 else
