@@ -247,6 +247,34 @@ main{flex:1;padding:var(--sp-5) 1rem calc(var(--bar) + var(--sp-6));background:v
 .trackrow .l{color:var(--muted)}
 
 .empty{color:var(--muted);text-align:center;padding:var(--sp-7) 1rem;font-size:var(--fs-body)}
+
+/* home footer utility link (backup) - deliberately low-key, not a primary action */
+.footlink{text-align:center;margin-top:var(--sp-6)}
+.footlink button{
+  appearance:none;border:none;background:none;color:var(--muted);font-family:var(--sans);
+  font-size:var(--fs-small);cursor:pointer;padding:var(--sp-3) var(--sp-4);min-height:2.75rem;
+  text-decoration:underline;text-underline-offset:2px;
+}
+.footlink button:hover{color:var(--on-dark)}
+
+/* backup: export / import progress - hairline rows, same discipline as rules/glossary */
+.backup-list{margin:0}
+.backup-row{border-bottom:1px solid var(--field-edge);padding:var(--sp-5) 0}
+.backup-list .backup-row:last-child{border-bottom:none}
+.backup-row h3{margin:0 0 var(--sp-2);font-family:var(--serif);font-size:var(--fs-heading-sm);color:var(--on-dark)}
+.backup-row p{margin:0 0 var(--sp-3);font-size:var(--fs-small);line-height:1.5;color:var(--muted)}
+.radiorow{
+  display:flex;align-items:flex-start;gap:var(--sp-2);padding:var(--sp-2) 0;min-height:2.75rem;
+  cursor:pointer;font-size:var(--fs-small);color:var(--on-dark);
+}
+.radiorow input{margin-top:.2rem;flex:none;width:1.1rem;height:1.1rem;accent-color:var(--ochre)}
+.radiorow b{color:var(--on-dark)}
+.radiorow.confirm{color:var(--ochre)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn:disabled:hover{filter:none;border-color:var(--field-edge)}
+.backup-msg{margin-top:var(--sp-4);padding:var(--sp-3);border-radius:var(--radius-sm);font-size:var(--fs-small);border:1px solid var(--field-edge)}
+.backup-msg.ok{color:var(--on-dark);border-color:var(--ochre)}
+.backup-msg.err{color:#f2b8ad;border-color:#8a4a3d;background:rgba(224,90,66,.08)}
 </style>
 </head>
 <body>
@@ -262,7 +290,8 @@ var pack = null, view = "home", queue = [], idx = 0, revealedSteps = 0, answerSh
     grades = {}, usedHint = false, highlightRule = null, focusRuleId = null,
     homeFilter = "", homeJustEntered = false, lastRenderedView = null,
     ruleFilterId = null, ruleFilterLabel = null, lastPushedView = null, suppressPush = false,
-    glossaryFilter = "", openFamily = null;
+    glossaryFilter = "", openFamily = null,
+    backupMode = "merge", backupConfirmReplace = false, backupMsg = null, backupMsgKind = null;
 
 function prefersReducedMotion(){
   try{ return window.matchMedia('(prefers-reduced-motion: reduce)').matches; }catch(e){ return false; }
@@ -313,6 +342,184 @@ function isDone(pid){ return !!getDoneMap()[pid]; }
 function setDone(pid, val){ var m = getDoneMap(); if(val){ m[pid] = true; } else { delete m[pid]; } setDoneMap(m); }
 
 function orderedPacks(){ return DATA.packs.slice().sort(function(a,b){ return a.tracks[0]-b.tracks[0]; }); }
+
+/* ---------- backup: export / import progress ----------
+   The whole storage contract this round-trips is exactly two localStorage
+   shapes (see storeKey()/persist()/restore() above and getDoneMap()/setDoneMap()):
+     lt-review:<packId>  -> { "<drillId>": "got" | "stuck" }
+     lt-review-done       -> { "<packId>": true }
+   Everything here reads/writes only through those, never a parallel format. */
+
+var BACKUP_SCHEMA = "lt-review-backup";
+var BACKUP_VERSION = 1;
+var KNOWN_PACK_IDS = null;
+function knownPackIds(){
+  if(!KNOWN_PACK_IDS){
+    KNOWN_PACK_IDS = {};
+    DATA.packs.forEach(function(p){ KNOWN_PACK_IDS[p.id] = true; });
+  }
+  return KNOWN_PACK_IDS;
+}
+
+function collectBackupPayload(){
+  var progress = {};
+  DATA.packs.forEach(function(p){
+    var raw; try{ raw = localStorage.getItem("lt-review:" + p.id); }catch(e){ raw = null; }
+    if(!raw) return;
+    var g; try{ g = JSON.parse(raw); }catch(e){ g = null; }
+    if(g && typeof g === "object" && Object.keys(g).length){ progress[p.id] = g; }
+  });
+  return {
+    app: BACKUP_SCHEMA,
+    version: BACKUP_VERSION,
+    exportedAt: new Date().toISOString(),
+    progress: progress,
+    done: getDoneMap()
+  };
+}
+
+function doExport(){
+  try{
+    var payload = collectBackupPayload();
+    var blob = new Blob([JSON.stringify(payload, null, 2)], {type: "application/json"});
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement("a");
+    a.href = url;
+    a.download = "complete-spanish-review-backup-" + payload.exportedAt.slice(0,10) + ".json";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(function(){ try{ URL.revokeObjectURL(url); }catch(e){} }, 1000);
+    backupMsg = "Backup downloaded."; backupMsgKind = "ok";
+  }catch(e){
+    backupMsg = "Couldn't create the backup file."; backupMsgKind = "err";
+  }
+  render();
+}
+
+// Validates the raw parsed JSON of a backup file and returns a fully-cleaned
+// {progress, done} ready to write, or {ok:false, message}. Never touches
+// localStorage itself - the whole point is that a bad file is caught here,
+// before anything is written, not partway through writing it.
+function validateBackupPayload(obj){
+  if(!obj || typeof obj !== "object" || Array.isArray(obj)){
+    return {ok:false, message:"That file isn't a valid backup (not a JSON object)."};
+  }
+  if(obj.app !== BACKUP_SCHEMA){
+    return {ok:false, message:"That file doesn't look like a Complete Spanish Review backup."};
+  }
+  if(obj.version !== BACKUP_VERSION){
+    return {ok:false, message:"That backup was made with a version of this app this build doesn't understand."};
+  }
+  if(!obj.progress || typeof obj.progress !== "object" || Array.isArray(obj.progress)){
+    return {ok:false, message:"That backup file is missing its progress data."};
+  }
+  var known = knownPackIds();
+  var progress = {}, skippedPacks = 0;
+  Object.keys(obj.progress).forEach(function(pid){
+    if(!known[pid]){ skippedPacks++; return; } // dataset gains tracks over time; ignore what we don't recognise
+    var g = obj.progress[pid];
+    if(!g || typeof g !== "object" || Array.isArray(g)) return;
+    var clean = {};
+    Object.keys(g).forEach(function(did){
+      if(g[did] === "got" || g[did] === "stuck"){ clean[did] = g[did]; }
+    });
+    if(Object.keys(clean).length){ progress[pid] = clean; }
+  });
+  var done = {};
+  if(obj.done && typeof obj.done === "object" && !Array.isArray(obj.done)){
+    Object.keys(obj.done).forEach(function(pid){
+      if(known[pid] && obj.done[pid] === true){ done[pid] = true; }
+    });
+  }
+  return {ok:true, progress:progress, done:done, skippedPacks:skippedPacks};
+}
+
+// Merge (the default, non-destructive choice): union everything, and where
+// the same drill is graded on both sides, "got" always wins over "stuck".
+// Progress only ever moves forward, so this can never erase a real result -
+// it's safe to run with a stale or partial file.
+function applyBackupMerge(progress, done){
+  Object.keys(progress).forEach(function(pid){
+    var key = "lt-review:" + pid;
+    var existing; try{ existing = JSON.parse(localStorage.getItem(key) || "{}"); }catch(e){ existing = {}; }
+    if(!existing || typeof existing !== "object"){ existing = {}; }
+    var incoming = progress[pid];
+    Object.keys(incoming).forEach(function(did){
+      if(existing[did] === "got") return;
+      existing[did] = incoming[did];
+    });
+    try{ localStorage.setItem(key, JSON.stringify(existing)); }catch(e){}
+  });
+  var doneMap = getDoneMap();
+  Object.keys(done).forEach(function(pid){ doneMap[pid] = true; });
+  setDoneMap(doneMap);
+}
+
+// Replace: the file becomes the sole source of truth for progress. Destructive
+// on purpose (an older export can wipe newer real progress), so callers must
+// gate this behind an explicit confirmation before ever getting here.
+function applyBackupReplace(progress, done){
+  DATA.packs.forEach(function(p){
+    try{ localStorage.removeItem("lt-review:" + p.id); }catch(e){}
+  });
+  Object.keys(progress).forEach(function(pid){
+    try{ localStorage.setItem("lt-review:" + pid, JSON.stringify(progress[pid])); }catch(e){}
+  });
+  setDoneMap(done);
+}
+
+function handleImportFile(file){
+  if(!file) return;
+  var mode = backupMode;
+  if(mode === "replace" && !backupConfirmReplace){
+    backupMsg = "Check the confirmation box before replacing existing progress. Nothing was changed.";
+    backupMsgKind = "err";
+    render();
+    return;
+  }
+  var reader = new FileReader();
+  reader.onload = function(){
+    var parsed;
+    try{ parsed = JSON.parse(String(reader.result)); }
+    catch(e){
+      backupMsg = "That file isn't valid JSON. Nothing was changed.";
+      backupMsgKind = "err";
+      finishImport();
+      return;
+    }
+    var result = validateBackupPayload(parsed);
+    if(!result.ok){
+      backupMsg = result.message + " Nothing was changed.";
+      backupMsgKind = "err";
+      finishImport();
+      return;
+    }
+    if(mode === "replace"){ applyBackupReplace(result.progress, result.done); }
+    else { applyBackupMerge(result.progress, result.done); }
+
+    var packCount = Object.keys(result.progress).length;
+    var doneCount = Object.keys(result.done).length;
+    var skipNote = result.skippedPacks ? (" (" + result.skippedPacks + " unrecognised track" + (result.skippedPacks===1?"":"s") + " skipped)") : "";
+    backupMsg = (mode === "replace" ? "Replaced" : "Merged in") + " progress for " + packCount + " track" + (packCount===1?"":"s") +
+      ", " + doneCount + " marked done" + skipNote + ".";
+    backupMsgKind = "ok";
+    backupConfirmReplace = false;
+    finishImport();
+  };
+  reader.onerror = function(){
+    backupMsg = "Couldn't read that file. Nothing was changed.";
+    backupMsgKind = "err";
+    finishImport();
+  };
+  reader.readAsText(file);
+}
+
+function finishImport(){
+  render();
+  // Clear the value so choosing the exact same file again still fires 'change'.
+  var fi = document.getElementById('importFile'); if(fi){ fi.value = ""; }
+}
 
 function nextRecommendedTrack(){
   var packs = orderedPacks();
@@ -456,6 +663,12 @@ function enterHome(){
   pack = null; view = "home"; homeJustEntered = true; render();
 }
 
+function enterBackup(){
+  pack = null; view = "backup";
+  backupMode = "merge"; backupConfirmReplace = false; backupMsg = null; backupMsgKind = null;
+  render();
+}
+
 function openPack(p, opts){
   pack = p;
   ruleFilterId = null; ruleFilterLabel = null;
@@ -535,6 +748,10 @@ function bar(html){ return '<div class="bar" id="bar">' + html + '</div>'; }
 function topBarHtml(){
   if(view==="glossary"){
     return '<div id="top"><h1>All rules</h1>' +
+      '<button class="iconbtn" id="topHomeBtn" title="Back to the track list">All tracks</button></div>';
+  }
+  if(view==="backup"){
+    return '<div id="top"><h1>Backup</h1>' +
       '<button class="iconbtn" id="topHomeBtn" title="Back to the track list">All tracks</button></div>';
   }
   var title = pack ? esc(pack.label) : "Complete Spanish";
@@ -620,6 +837,7 @@ function renderHome(){
         ' match in All rules <span class="arrow" aria-hidden="true">&rarr;</span></button>';
     }
     html += '<div class="packlist">' + (filtered.map(packCardHtml).join('') || '<div class="empty">No tracks match that search.</div>') + '</div>';
+    html += '<div class="footlink"><button id="backupBtn">Back up or restore progress</button></div>';
     return html;
   }
 
@@ -646,6 +864,38 @@ function renderHome(){
     html += '<div class="packlist">' + secPacks.map(packCardHtml).join('') + '</div>';
   });
 
+  html += '<div class="footlink"><button id="backupBtn">Back up or restore progress</button></div>';
+  return html;
+}
+
+function renderBackup(){
+  var html = '<div class="home-hero"><p>Your progress lives only in this browser. Download a backup to keep a copy, or bring progress over from another device or browser.</p></div>';
+  html += '<div class="backup-list">';
+
+  html += '<div class="backup-row"><h3>Export</h3>' +
+    '<p>Download everything you\'ve graded and marked done as one file.</p>' +
+    '<button class="btn primary small" id="exportBtn">Download backup &rarr;</button>' +
+    '</div>';
+
+  var replaceSelected = backupMode === "replace";
+  var importDisabled = replaceSelected && !backupConfirmReplace;
+  html += '<div class="backup-row"><h3>Import</h3>' +
+    '<p>Load a backup file back in. Choose how it combines with what\'s already here:</p>' +
+    '<label class="radiorow"><input type="radio" name="backupMode" value="merge" id="modeMerge" '+(backupMode==="merge"?"checked":"")+'>' +
+    '<span><b>Merge</b> &mdash; keep everything on both sides; where a drill is graded on both, the more advanced grade wins. Never loses progress.</span></label>' +
+    '<label class="radiorow"><input type="radio" name="backupMode" value="replace" id="modeReplace" '+(replaceSelected?"checked":"")+'>' +
+    '<span><b>Replace</b> &mdash; wipe current progress and use only what\'s in the file.</span></label>' +
+    (replaceSelected ? '<label class="radiorow confirm"><input type="checkbox" id="backupConfirm" '+(backupConfirmReplace?"checked":"")+'>' +
+      '<span>I understand this replaces all current progress and can\'t be undone.</span></label>' : '') +
+    '<input type="file" id="importFile" accept="application/json,.json" style="display:none">' +
+    '<button class="btn small" id="importBtn"'+(importDisabled?' disabled title="Check the confirmation box first"':'')+'>Choose file&hellip;</button>' +
+    '</div>';
+
+  if(backupMsg){
+    html += '<div class="backup-msg '+(backupMsgKind==="err"?"err":"ok")+'" role="status" aria-live="polite">' + esc(backupMsg) + '</div>';
+  }
+
+  html += '</div>';
   return html;
 }
 
@@ -856,6 +1106,8 @@ function render(){
     html += renderRules();
   } else if(view==="summary"){
     html += renderSummary();
+  } else if(view==="backup"){
+    html += renderBackup();
   }
   html += '</main>';
 
@@ -957,6 +1209,15 @@ function wire(){
 
   on('homeSearch', function(ev){ homeFilter = ev.target.value; render(); }, 'input');
 
+  on('backupBtn', enterBackup);
+  on('exportBtn', doExport);
+  onAll('input[name="backupMode"]', function(ev, el){
+    backupMode = el.value; backupConfirmReplace = false; backupMsg = null; backupMsgKind = null; render();
+  }, 'change');
+  on('backupConfirm', function(ev){ backupConfirmReplace = ev.target.checked; render(); }, 'change');
+  on('importBtn', function(){ var el = document.getElementById('importFile'); if(el) el.click(); });
+  on('importFile', function(ev){ handleImportFile(ev.target.files && ev.target.files[0]); }, 'change');
+
   on('nextStepBtn', nextStep);
   on('revealBtn', function(){ answerShown = true; render(); });
   on('speakBtn', function(){ var d = queue[idx]; if(d) speak(d.answer); });
@@ -991,7 +1252,7 @@ function wire(){
 }
 
 window.addEventListener('popstate', function(ev){
-  if(view==="glossary"){ suppressPush = true; enterHome(); suppressPush = false; return; }
+  if(view==="glossary" || view==="backup"){ suppressPush = true; enterHome(); suppressPush = false; return; }
   if(pack){ suppressPush = true; goBack(); suppressPush = false; }
 });
 

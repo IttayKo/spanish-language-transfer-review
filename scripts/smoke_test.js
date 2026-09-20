@@ -1,6 +1,7 @@
 #!/usr/bin/env node
-// Browser smoke test for index.html: the golden path plus the localStorage
-// progress contract that live users' saved progress depends on.
+// Browser smoke test for index.html: the golden path, the localStorage
+// progress contract that live users' saved progress depends on, and the
+// export/import round trip that is meant to be the escape hatch for it.
 //
 // Playwright/Chromium are pre-installed outside this project's node_modules
 // (there is no package.json dependency, no install step): run this with
@@ -13,6 +14,7 @@
 'use strict';
 
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
 const http = require('http');
 
@@ -57,7 +59,7 @@ async function main() {
   let errorCount = 0;
 
   try {
-    const context = await browser.newContext();
+    const context = await browser.newContext({ acceptDownloads: true });
     const page = await context.newPage();
     const pageErrors = [];
     page.on('pageerror', (e) => pageErrors.push('pageerror: ' + e.message));
@@ -220,6 +222,110 @@ async function main() {
       `cue read ${JSON.stringify(cueTextAfter)}, expected to contain "piece 5 of ${pool.length}" - a grade did not persist`);
 
     check(pageErrors.length === 0, 'no page/console errors during the localStorage regression check',
+      pageErrors.join('\n  '));
+
+    // ==================== progress export / import ====================
+    // Real users' only copy of their progress is this feature. Round-trip it
+    // for real: through the actual download and the actual (hidden) file
+    // input, not by calling internal functions - and confirm a malformed
+    // file is rejected without touching whatever progress already exists.
+    const expectedSeedGrades = Object.assign({}, seedGrades);
+    expectedSeedGrades[pool[3].id] = 'got'; // the resumed drill graded just above
+
+    await page.click('#topHomeBtn'); // leave the track, back to the track list
+    await page.waitForSelector('#backupBtn');
+    await page.click('#backupBtn');
+    await page.waitForSelector('#exportBtn');
+
+    const downloadPromise = page.waitForEvent('download');
+    await page.click('#exportBtn');
+    const download = await downloadPromise;
+    const backupPath = path.join(os.tmpdir(), 'lt-review-smoke-backup.json');
+    await download.saveAs(backupPath);
+    const backupRaw = fs.readFileSync(backupPath, 'utf-8');
+    let backupJson = null;
+    try { backupJson = JSON.parse(backupRaw); } catch (e) { /* checked below */ }
+
+    check(!!backupJson, 'exported backup file is valid JSON');
+    check(!!backupJson && backupJson.app === 'lt-review-backup', 'exported backup carries an app/schema marker');
+    check(!!backupJson && backupJson.version === 1, 'exported backup carries a version number');
+    check(!!backupJson && typeof backupJson.exportedAt === 'string' && backupJson.exportedAt.length > 0,
+      'exported backup carries an export timestamp');
+    check(!!backupJson && JSON.stringify(backupJson.progress && backupJson.progress[seedPack.id]) === JSON.stringify(expectedSeedGrades),
+      `exported backup contains the exact seeded grades for ${seedPack.id}`,
+      `got ${JSON.stringify(backupJson && backupJson.progress && backupJson.progress[seedPack.id])}`);
+    check(!!backupJson && backupJson.done && backupJson.done[seedPack.id] === true,
+      'exported backup marks the seeded pack done');
+
+    // Wipe everything, exactly like clearing site data or landing on a new device.
+    await page.evaluate(() => { try { localStorage.clear(); } catch (e) { /* ignore */ } });
+    await page.reload({ waitUntil: 'load' });
+    await page.waitForSelector('.packcard');
+    const wipedCardClass = await page.locator(`.packcard[data-pid="${cssEscape(seedPack.id)}"]`).getAttribute('class');
+    check(!(wipedCardClass || '').split(/\s+/).includes('done'),
+      'wiping localStorage really did clear the seeded pack\'s done state (sanity check before importing)');
+
+    await page.click('#backupBtn');
+    await page.waitForSelector('#importFile', { state: 'attached' }); // hidden by design, see importFile's CSS
+
+    // ---- malformed / unrelated / truncated files must be rejected cleanly ----
+    const unrelatedPath = path.join(os.tmpdir(), 'lt-review-smoke-unrelated.json');
+    fs.writeFileSync(unrelatedPath, JSON.stringify({ hello: 'world', totally: 'unrelated' }));
+    await page.setInputFiles('#importFile', unrelatedPath);
+    await page.waitForSelector('.backup-msg.err', { timeout: 5000 });
+    let progressKeyCount = await page.evaluate(
+      () => Object.keys(localStorage).filter((k) => k.indexOf('lt-review:') === 0).length);
+    check(progressKeyCount === 0, 'importing an unrelated JSON file is rejected and writes nothing to localStorage');
+
+    const truncatedPath = path.join(os.tmpdir(), 'lt-review-smoke-truncated.json');
+    fs.writeFileSync(truncatedPath, backupRaw.slice(0, Math.floor(backupRaw.length / 2)));
+    await page.setInputFiles('#importFile', truncatedPath);
+    await page.waitForSelector('.backup-msg.err', { timeout: 5000 });
+    progressKeyCount = await page.evaluate(
+      () => Object.keys(localStorage).filter((k) => k.indexOf('lt-review:') === 0).length);
+    check(progressKeyCount === 0, 'importing a truncated file is rejected and writes nothing to localStorage');
+
+    // ---- the destructive path (replace) is gated behind an explicit confirmation ----
+    await page.click('#modeReplace');
+    await page.waitForSelector('#backupConfirm');
+    check(await page.isDisabled('#importBtn'),
+      'replace mode disables the import trigger until the confirmation box is checked');
+    // Bypass the button and hand the input a file directly: the handler itself
+    // must still refuse, not just the button's disabled attribute.
+    await page.setInputFiles('#importFile', backupPath);
+    await page.waitForSelector('.backup-msg.err', { timeout: 5000 });
+    progressKeyCount = await page.evaluate(
+      () => Object.keys(localStorage).filter((k) => k.indexOf('lt-review:') === 0).length);
+    check(progressKeyCount === 0,
+      'replace mode refuses to import without the confirmation checked, even if a file is supplied directly');
+    check(await page.isDisabled('#importBtn'), 'import trigger is still disabled after the refused attempt');
+
+    await page.check('#backupConfirm');
+    check(!(await page.isDisabled('#importBtn')), 'checking the confirmation box enables the import trigger');
+
+    // ---- real round trip: switch back to merge (the default) and import for real ----
+    await page.click('#modeMerge');
+    await page.setInputFiles('#importFile', backupPath);
+    await page.waitForSelector('.backup-msg.ok', { timeout: 5000 });
+
+    await page.reload({ waitUntil: 'load' });
+    await page.waitForSelector('.packcard');
+    const restoredCard = page.locator(`.packcard[data-pid="${cssEscape(seedPack.id)}"]`);
+    const restoredCardClass = await restoredCard.getAttribute('class');
+    check((restoredCardClass || '').split(/\s+/).includes('done'), 'imported backup restores the done tick');
+    const restoredProgText = (await restoredCard.locator('.prog').textContent()).trim();
+    const expectedGotCount = Object.values(expectedSeedGrades).filter((g) => g === 'got').length;
+    check(restoredProgText === `${expectedGotCount}/${pool.length}`,
+      'imported backup restores the exact progress count',
+      `got ${JSON.stringify(restoredProgText)}, expected "${expectedGotCount}/${pool.length}"`);
+
+    const restoredGrades = await page.evaluate(
+      (pid) => JSON.parse(localStorage.getItem('lt-review:' + pid) || '{}'), seedPack.id);
+    check(JSON.stringify(restoredGrades) === JSON.stringify(expectedSeedGrades),
+      'imported backup restores the exact per-drill grades, not just the count',
+      `got ${JSON.stringify(restoredGrades)}, expected ${JSON.stringify(expectedSeedGrades)}`);
+
+    check(pageErrors.length === 0, 'no page/console errors during the export/import round trip',
       pageErrors.join('\n  '));
   } catch (e) {
     fail('smoke test threw: ' + (e && e.stack || e));

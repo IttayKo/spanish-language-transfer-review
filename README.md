@@ -19,6 +19,17 @@ sits next to the audio course; it doesn't replace it.
   copies of the same rule together); the glossary groups them back into one
   entry per concept, with a practice button per track that drills it.
 
+Progress lives only in the browser's `localStorage` — there's no account and
+no server copy, so clearing site data or switching devices loses it with no
+way back. A low-key **"Back up or restore progress"** link at the bottom of
+the track list downloads a small JSON file (grades + done-tracks, with a
+schema/version marker) and can load one back in. Bringing a file back in
+defaults to **merge** (union both sides, "got" always beats "stuck" on a
+disagreement — never loses a result); **replace** wipes existing progress
+first and is gated behind an explicit confirmation checkbox, so the
+destructive option can never fire by accident. A bad or unrelated file is
+rejected before anything is written.
+
 **Design intent behind this repo — read before editing content or UI:**
 
 - Nothing gets ahead of what the course has actually taught by that track:
@@ -75,4 +86,6 @@ promotable to a hard failure with `LT_STRICT_BUILD=1`), and drives the app
 in headless Chromium through opening a track, grading a drill, reaching the
 summary, and practicing a rule from the "All rules" glossary — plus seeding
 a known progress blob and confirming it's read back and resumed correctly,
-so a build that breaks any of this fails loudly instead of shipping.
+and a full export/import round trip (including that a malformed file is
+rejected without touching existing progress), so a build that breaks any of
+this fails loudly instead of shipping.
