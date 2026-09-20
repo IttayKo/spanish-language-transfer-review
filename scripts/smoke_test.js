@@ -164,10 +164,13 @@ async function main() {
     const goldenPack = drillPacks.slice().sort((a, b) => a.drills.length - b.drills.length)[0];
 
     await page.click(`.rowbtn[data-pid="${cssEscape(goldenPack.id)}"]`);
-    await page.waitForSelector('#top h1');
-    const trackTitle = (await page.textContent('#top h1')).trim();
-    check(trackTitle === goldenPack.label, `opening ${goldenPack.id} shows its own title in the top bar`,
-      `got ${JSON.stringify(trackTitle)}, expected ${JSON.stringify(goldenPack.label)}`);
+    // The redesign's pack-view header (back arrow + Drills/Rules tabs) carries
+    // no title of its own - the track identifies itself in the cue line
+    // instead ("Track N · drill i of n"), so that's where this check looks.
+    await page.waitForSelector('.cue');
+    const cueTitleText = (await page.textContent('.cue')).trim();
+    check(cueTitleText.indexOf(goldenPack.label) === 0, `opening ${goldenPack.id} shows its own track label in the cue line`,
+      `got ${JSON.stringify(cueTitleText)}, expected it to start with ${JSON.stringify(goldenPack.label)}`);
 
     check(await page.locator('#revealBtn').count() > 0, 'first drill has a reveal-answer button');
     for (let i = 0; i < goldenPack.drills.length; i++) {
@@ -210,15 +213,15 @@ async function main() {
         const targetPid = await practiceBtn.getAttribute('data-pid');
         const targetRuleId = await practiceBtn.getAttribute('data-ruleid');
         await practiceBtn.click();
-        await page.waitForSelector('#top h1');
+        await page.waitForSelector('.cue');
 
         const bannerCount = await page.locator('.filterbanner').count();
-        check(bannerCount > 0, 'practicing a rule from the glossary shows the "Practicing:" filter banner');
-        const landedTitle = (await page.textContent('#top h1')).trim();
+        check(bannerCount > 0, 'practicing a rule from the glossary shows the "Only drills for:" filter banner');
+        const landedTitle = (await page.textContent('.cue')).trim();
         const targetPack = DATA.packs.find((p) => p.id === targetPid);
-        check(landedTitle === (targetPack ? targetPack.label : null),
+        check(!!targetPack && landedTitle.indexOf(targetPack.label) === 0,
           'practicing a glossary rule lands on the right track',
-          `got ${JSON.stringify(landedTitle)}, expected ${JSON.stringify(targetPack && targetPack.label)}`);
+          `cue read ${JSON.stringify(landedTitle)}, expected it to start with ${JSON.stringify(targetPack && targetPack.label)}`);
 
         // Reveal and confirm the drill is actually tagged with the rule we
         // asked to practice (the filter did what it claims).
@@ -268,10 +271,14 @@ async function main() {
     check((seedCardClass || '').split(/\s+/).includes('done'),
       'seeded pack shows as done on the home screen, read back from lt-review-done',
       `class was ${JSON.stringify(seedCardClass)}`);
-    const progText = (await seedCard.locator('.prog').textContent()).trim();
-    check(progText === `2/${pool.length}`,
-      'seeded pack shows the right progress count, read back from lt-review:<id>',
-      `got ${JSON.stringify(progText)}, expected "2/${pool.length}" (2 "got" grades)`);
+    // Success is unmarked by design: a track marked done shows nothing in the
+    // progress column (the filled tick already said it) even though it also
+    // has partial per-drill grades underneath - so the read-back of
+    // lt-review:<id> is verified below instead, via where the track resumes.
+    const progCountWhileDone = await seedCard.locator('.prog').count();
+    check(progCountWhileDone === 0,
+      'a done track shows nothing in the progress column, even with partial grades underneath',
+      `found ${progCountWhileDone} .prog element(s)`);
 
     // Open it: it should resume at the first ungraded drill (index 3), not
     // restart at drill 1.
@@ -386,11 +393,13 @@ async function main() {
     const restoredCard = page.locator(`.packcard[data-pid="${cssEscape(seedPack.id)}"]`);
     const restoredCardClass = await restoredCard.getAttribute('class');
     check((restoredCardClass || '').split(/\s+/).includes('done'), 'imported backup restores the done tick');
-    const restoredProgText = (await restoredCard.locator('.prog').textContent()).trim();
-    const expectedGotCount = Object.values(expectedSeedGrades).filter((g) => g === 'got').length;
-    check(restoredProgText === `${expectedGotCount}/${pool.length}`,
-      'imported backup restores the exact progress count',
-      `got ${JSON.stringify(restoredProgText)}, expected "${expectedGotCount}/${pool.length}"`);
+    // Same "success is unmarked" rule as above: this track is done, so its
+    // progress column is empty on the home screen; the exact restored grades
+    // (the real content of the count) are checked below via localStorage.
+    const restoredProgCount = await restoredCard.locator('.prog').count();
+    check(restoredProgCount === 0,
+      'a done track restored by import still shows nothing in the progress column',
+      `found ${restoredProgCount} .prog element(s)`);
 
     const restoredGrades = await page.evaluate(
       (pid) => JSON.parse(localStorage.getItem('lt-review:' + pid) || '{}'), seedPack.id);
@@ -421,18 +430,23 @@ async function main() {
 
     // Whatever's on screen right now is from the import round trip above -
     // note it so we can confirm the exact same thing survives being served
-    // from the offline cache below.
-    const preOfflineProg = (await page.locator(`.packcard[data-pid="${cssEscape(seedPack.id)}"] .prog`).textContent()).trim();
+    // from the offline cache below. seedPack is marked done (so its
+    // progress column is empty by design - "success is unmarked"), so the
+    // done tick's class is the signal to compare instead of .prog text.
+    const preOfflineDone = ((await page.locator(`.packcard[data-pid="${cssEscape(seedPack.id)}"]`).getAttribute('class')) || '')
+      .split(/\s+/).includes('done');
+    check(preOfflineDone, 'the seeded pack is showing as done before going offline (sanity check)');
 
     await context.setOffline(true);
     await page.reload({ waitUntil: 'load' });
     const offlineCardCount = await page.locator('.packcard').count();
     check(offlineCardCount === DATA.packs.length,
       'the app still loads and renders every track while offline, served from the service worker cache');
-    const offlineProg = (await page.locator(`.packcard[data-pid="${cssEscape(seedPack.id)}"] .prog`).textContent()).trim();
-    check(offlineProg === preOfflineProg,
+    const offlineDone = ((await page.locator(`.packcard[data-pid="${cssEscape(seedPack.id)}"]`).getAttribute('class')) || '')
+      .split(/\s+/).includes('done');
+    check(offlineDone === preOfflineDone,
       'progress (feature 1) survives being served offline from the cache',
-      `got ${JSON.stringify(offlineProg)}, expected ${JSON.stringify(preOfflineProg)}`);
+      `got done=${offlineDone}, expected done=${preOfflineDone}`);
     await context.setOffline(false);
 
     // Simulate a real deploy landing while this client was offline: swap the
