@@ -156,6 +156,7 @@ main{flex:1;padding:var(--sp-5) 1rem calc(var(--bar) + var(--sp-6));background:v
 }
 .eng{font-family:var(--serif);font-style:italic;font-size:1.25rem;line-height:1.45;color:var(--on-dark)}
 .cue{color:var(--muted);font-size:var(--fs-small);margin-top:var(--sp-2)}
+.src-tag{font-style:italic}
 .steps{list-style:none;margin:var(--sp-4) 0 0;padding:0;display:flex;flex-direction:column;gap:var(--sp-2)}
 .steps li{
   background:var(--field);border-radius:var(--radius-sm);
@@ -987,8 +988,12 @@ function renderDrill(){
   }
   var drillWord = queue.length===1 ? 'drill' : 'drills';
   var bannerHtml = ruleFilterId ? ('<div class="filterbanner"><span class="fb-text">Practicing: <b>'+esc(ruleFilterLabel)+'</b> &middot; '+queue.length+' '+drillWord+'</span> <button class="btn small ghost" id="clearRuleFilterBtn">Show all drills</button></div>') : '';
+  // Extensions are sentences we wrote from the track's rules, not lines the
+  // teacher said - mark that provenance quietly next to the drill count.
+  // Track drills (the recording itself) are the default and stay unmarked.
+  var srcTagHtml = d.source === 'extension' ? ' &middot; <span class="src-tag">not from the recording</span>' : '';
   var promptHtml = bannerHtml + '<div class="prompt"><div class="eng">'+esc(d.prompt)+'</div>' +
-    '<div class="cue">Track '+d.track+' &middot; drill '+(idx+1)+' of '+queue.length+'</div>' +
+    '<div class="cue">Track '+d.track+' &middot; drill '+(idx+1)+' of '+queue.length+srcTagHtml+'</div>' +
     stepsHtml + '</div>';
 
   var answerHtml = "";

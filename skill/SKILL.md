@@ -149,8 +149,10 @@ Grade them upward with `difficulty` 1 to 3, in this order:
    an earlier track. These are the ones that feel like speaking.
 
 Mark every one `"source": "extension"` and place them after that track's
-transcript drills, ascending by difficulty. The player labels them so the learner
-knows they've left the recording behind.
+transcript drills, ascending by difficulty. The player marks each one "not from
+the recording", next to the drill count, so the learner knows they've left the
+recording behind. `difficulty` (1-3, swap/combine/stretch) stays internal
+bookkeeping — the player doesn't surface it.
 
 ### 6. Judgement calls
 

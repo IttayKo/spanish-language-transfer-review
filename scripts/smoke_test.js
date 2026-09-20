@@ -108,6 +108,54 @@ async function main() {
     check(cardCount === DATA.packs.length, 'home shows one track card per pack',
       `got ${cardCount} cards, expected ${DATA.packs.length}`);
 
+    // ==================== extension provenance marker ====================
+    // Extension drills (sentences we wrote from a track's rules, not lines
+    // the teacher said) must carry a quiet provenance marker on the drill
+    // screen; track drills (from the recording, the default) must not.
+    // Picked straight from the embedded pack data so this stays valid as
+    // content changes, and run before any progress exists so drill order
+    // starts fresh at index 0.
+    const markerCandidates = DATA.packs.filter((p) => {
+      const drills = p.drills || [];
+      return drills.some((d) => d.source === 'extension') && drills.some((d) => d.source === 'track');
+    });
+    check(markerCandidates.length > 0, 'at least one pack has both track and extension drills to test the marker on');
+    if (markerCandidates.length > 0) {
+      const markerPack = markerCandidates.slice().sort((a, b) => a.drills.length - b.drills.length)[0];
+      const firstTrackIdx = markerPack.drills.findIndex((d) => d.source === 'track');
+      const firstExtIdx = markerPack.drills.findIndex((d) => d.source === 'extension');
+      check(firstTrackIdx !== -1 && firstExtIdx !== -1,
+        `${markerPack.id} has a findable track drill and a findable extension drill`);
+
+      await page.click(`.rowbtn[data-pid="${cssEscape(markerPack.id)}"]`);
+      await page.waitForSelector('.cue');
+
+      const lastIdx = Math.max(firstTrackIdx, firstExtIdx);
+      for (let i = 0; i <= lastIdx; i++) {
+        const hasMarker = await page.locator('.cue .src-tag').count() > 0;
+        if (i === firstExtIdx) {
+          check(hasMarker, `extension drill ${markerPack.drills[i].id} shows the provenance marker`);
+        }
+        if (i === firstTrackIdx) {
+          check(!hasMarker, `track drill ${markerPack.drills[i].id} shows no provenance marker`);
+        }
+        await page.click('#revealBtn');
+        await page.click('#stuckBtn');
+      }
+
+      // Reset: this walk left grades behind for markerPack, and the golden
+      // path / localStorage checks below need a clean slate to reason about.
+      // Which bar id is present depends on whether the walk landed exactly
+      // on the summary screen (grading the pack's very last drill).
+      await page.evaluate(() => { try { localStorage.clear(); } catch (e) { /* ignore */ } });
+      if (await page.locator('#topHomeBtn2').count() > 0) { await page.click('#topHomeBtn2'); }
+      else { await page.click('#topHomeBtn'); }
+      await page.waitForSelector('.packcard');
+    }
+
+    check(pageErrors.length === 0, 'no page/console errors during the extension marker check',
+      pageErrors.join('\n  '));
+
     // ==================== golden path ====================
     // Use the pack with the fewest (but nonzero) drills, so grading through
     // an entire track to reach the summary stays fast.
