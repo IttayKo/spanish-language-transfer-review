@@ -95,11 +95,13 @@ drill. Take these three fields from the transcript:
   order. These become the scaffolding. If the teacher didn't break it down,
   write the steps in his voice anyway, one per decision the learner has to make.
 
-Single-word conversions ("how would you say celebration?") are `type: "forge"`
-drills. Sentences are `type: "build"`. But don't manufacture a forge drill just
-to introduce a word ahead of a build drill that needs it — see "Don't pre-teach
-vocabulary" below. Only capture a forge drill when the teacher genuinely drilled
-that word or phrase on its own.
+Single-word conversions ("how would you say celebration?") are `type: "word"`
+drills. Sentences are `type: "sentence"`. (This split is the app's own
+bookkeeping, not a distinction the course draws — don't present it to the
+learner as if it were.) But don't manufacture a word drill just to introduce a
+word ahead of a sentence drill that needs it — see "Don't pre-teach vocabulary"
+below. Only capture a word drill when the teacher genuinely drilled that word
+or phrase on its own.
 
 Mark everything taken from the transcript `"source": "track"`.
 
@@ -152,12 +154,12 @@ knows they've left the recording behind.
 
 ### 6. Judgement calls
 
-- **Don't pre-teach vocabulary.** A word doesn't need its own forge drill just
-  because it's about to appear inside a build sentence a moment later — the
-  build drill's `steps` can derive it right there in context ("to prepare:
+- **Don't pre-teach vocabulary.** A word doesn't need its own word drill just
+  because it's about to appear inside a sentence drill a moment later — the
+  sentence drill's `steps` can derive it right there in context ("to prepare:
   preparar, from preparación — drop -ción, add r"). The pack teaches rules, not
   a stockpile of words you must meet individually before you're allowed to use
-  them in a phrase. Only give a word its own forge drill when the teacher
+  them in a phrase. Only give a word its own word drill when the teacher
   genuinely drilled it standalone (or when it's worth exercising the rule on its
   own before combining it with anything else) — not as a rehearsal step before
   the sentence that was going to use it anyway.
@@ -191,7 +193,7 @@ drill:
 ```json
 {
   "id": "t21-04",
-  "type": "build",
+  "type": "sentence",
   "prompt": "We have anticipated it for a long time.",
   "answer": "Lo hemos anticipado por mucho tiempo.",
   "steps": ["we have anticipated it: lo hemos anticipado, with lo out at the front",
@@ -207,7 +209,7 @@ An extension drill built on the same rules:
 ```json
 {
   "id": "t21-x03",
-  "type": "build",
+  "type": "sentence",
   "prompt": "Why haven't you invited my brother? (informal)",
   "answer": "¿Por qué no has invitado a mi hermano?",
   "steps": ["why: por qué", "no at the front", "you: has", "invitar becomes invitado",
@@ -247,7 +249,7 @@ If asked for these, explain the conflict and offer the drill pack instead:
 - Spanish-to-English cards, or multiple choice. Both are recognition. The course
   trains production.
 - Vocabulary lists. Vocabulary in this course arrives through conversion rules,
-  so `forge` drills on the rules are the equivalent and are endlessly extendable.
+  so `word` drills on the rules are the equivalent and are endlessly extendable.
 - Conjugation tables. The course deliberately avoids presenting paradigms as
   grids; it builds each form from a rule.
 - Timers, speed scoring, or streaks. "Think slowly to learn quickly" is a direct

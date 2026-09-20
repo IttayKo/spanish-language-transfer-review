@@ -61,10 +61,10 @@ track of the pack it sits in.
 | Field | Required | Notes |
 |---|---|---|
 | `id` | yes | `"t21-04"` style. Unique; also the key for saved progress. |
-| `type` | yes | `"build"` for a sentence, `"forge"` for a single-word conversion. |
+| `type` | yes | `"sentence"` for a full-sentence drill, `"word"` for a single-word conversion. This is an internal distinction the app makes, not a term from the course. |
 | `prompt` | yes | **English only.** Bracketed disambiguation is allowed: `"(informal)"`, `"(you plural)"`, `"(formal, plural)"`. |
 | `answer` | yes | The teacher's confirmed Spanish, with accents and `¿ ¡`. |
-| `steps` | build: yes | Ordered scaffolding, one per decision. Revealed one at a time on request. |
+| `steps` | sentence: yes | Ordered scaffolding, one per decision. Revealed one at a time on request. |
 | `rules` | yes | Array of rule ids. Shown under the answer as the "Why". |
 | `track` | yes | Source track. |
 | `source` | yes | `"track"` if the teacher said it, `"extension"` if you wrote it from the pack's rules. |
@@ -82,7 +82,7 @@ Aim for roughly:
 
 - 8-15 transcript drills per track, plus about a third that number of extensions
 - 3-6 rules per track
-- a mix of types: forge drills are quick wins, build drills carry the weight
+- a mix of types: word drills are quick wins, sentence drills carry the weight
 - the last third of a track's transcript drills should combine two or more rules,
   because that's where the teacher takes the learner, and the difficulty-3
   extensions should go one step past it
@@ -106,9 +106,9 @@ Punctuate normally. Don't add the Spanish inverted marks to the English.
 
 House style, because the prompts are read one after another:
 
-- A `build` prompt is a sentence: it starts with a capital and ends with its
+- A `sentence` prompt is a sentence: it starts with a capital and ends with its
   own `.` or `?`.
-- A `forge` prompt is the word or phrase to convert, so it takes **no** final
+- A `word` prompt is the word or phrase to convert, so it takes **no** final
   full stop — neither does its answer.
 - A disambiguating bracket goes **after** the sentence's own punctuation and
   ends the prompt: `"You see it. (formal)"`, not `"You see it (formal)."`.

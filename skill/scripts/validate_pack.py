@@ -88,8 +88,8 @@ def main():
             errors.append(f"{where}: duplicate drill id {did}")
         drill_ids.add(did)
 
-        if drill.get("type") not in ("build", "forge"):
-            errors.append(f"{where}: type must be 'build' or 'forge'")
+        if drill.get("type") not in ("sentence", "word"):
+            errors.append(f"{where}: type must be 'sentence' or 'word'")
 
         leak = spanish_leak(drill.get("prompt", ""))
         if leak:
@@ -101,7 +101,7 @@ def main():
                 errors.append(f"{where} ({did}): unknown rule id {rid}")
         if not drill.get("rules"):
             warnings.append(f"{where} ({did}): not linked to any rule")
-        if drill.get("type") == "build" and not drill.get("steps"):
+        if drill.get("type") == "sentence" and not drill.get("steps"):
             warnings.append(f"{where} ({did}): no steps, so there is nothing to scaffold with")
 
         source = drill.get("source", "track")
