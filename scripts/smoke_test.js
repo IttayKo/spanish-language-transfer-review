@@ -226,13 +226,13 @@ async function main() {
       `got ${JSON.stringify(progText)}, expected "2/${pool.length}" (2 "got" grades)`);
 
     // Open it: it should resume at the first ungraded drill (index 3), not
-    // restart at piece 1.
+    // restart at drill 1.
     await page.click(`.rowbtn[data-pid="${cssEscape(seedPack.id)}"]`);
     await page.waitForSelector('.cue');
     const cueText = (await page.textContent('.cue')).trim();
-    check(cueText.indexOf(`piece 4 of ${pool.length}`) !== -1,
+    check(cueText.indexOf(`drill 4 of ${pool.length}`) !== -1,
       'opening a seeded pack resumes at the first ungraded drill instead of restarting',
-      `cue read ${JSON.stringify(cueText)}, expected to contain "piece 4 of ${pool.length}"`);
+      `cue read ${JSON.stringify(cueText)}, expected to contain "drill 4 of ${pool.length}"`);
 
     // Grade the resumed drill, reload, and confirm it persisted.
     await page.click('#revealBtn');
@@ -242,9 +242,9 @@ async function main() {
     await page.click(`.rowbtn[data-pid="${cssEscape(seedPack.id)}"]`);
     await page.waitForSelector('.cue');
     const cueTextAfter = (await page.textContent('.cue')).trim();
-    check(cueTextAfter.indexOf(`piece 5 of ${pool.length}`) !== -1,
+    check(cueTextAfter.indexOf(`drill 5 of ${pool.length}`) !== -1,
       'a freshly graded drill survives a full page reload',
-      `cue read ${JSON.stringify(cueTextAfter)}, expected to contain "piece 5 of ${pool.length}" - a grade did not persist`);
+      `cue read ${JSON.stringify(cueTextAfter)}, expected to contain "drill 5 of ${pool.length}" - a grade did not persist`);
 
     check(pageErrors.length === 0, 'no page/console errors during the localStorage regression check',
       pageErrors.join('\n  '));

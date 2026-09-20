@@ -154,7 +154,6 @@ main{flex:1;padding:var(--sp-5) 1rem calc(var(--bar) + var(--sp-6));background:v
   background:var(--field-deep);border:1px solid var(--field-edge);border-radius:var(--radius-lg);
   padding:var(--sp-5) var(--sp-4);margin-bottom:var(--sp-4);
 }
-.kind{font-size:var(--fs-caption);text-transform:uppercase;letter-spacing:.06em;color:var(--ochre);font-weight:700;margin-bottom:var(--sp-2)}
 .eng{font-family:var(--serif);font-style:italic;font-size:1.25rem;line-height:1.45;color:var(--on-dark)}
 .cue{color:var(--muted);font-size:var(--fs-small);margin-top:var(--sp-2)}
 .steps{list-style:none;margin:var(--sp-4) 0 0;padding:0;display:flex;flex-direction:column;gap:var(--sp-2)}
@@ -982,15 +981,14 @@ function renderGlossary(){
 function renderDrill(){
   var d = queue[idx];
   if(!d){ return '<div class="empty">Nothing to practice here.</div>'; }
-  var kindLbl = d.type==="forge" ? "Forge it" : "Build it";
   var stepsHtml = "";
   if(revealedSteps>0 && d.steps){
     stepsHtml = '<ul class="steps">' + d.steps.slice(0,revealedSteps).map(function(s){ return '<li>'+esc(s)+'</li>'; }).join('') + '</ul>';
   }
-  var pieceWord = queue.length===1 ? 'piece' : 'pieces';
-  var bannerHtml = ruleFilterId ? ('<div class="filterbanner"><span class="fb-text">Practicing: <b>'+esc(ruleFilterLabel)+'</b> &middot; '+queue.length+' '+pieceWord+'</span> <button class="btn small ghost" id="clearRuleFilterBtn">Show all pieces</button></div>') : '';
-  var promptHtml = bannerHtml + '<div class="prompt"><div class="kind">'+kindLbl+'</div><div class="eng">'+esc(d.prompt)+'</div>' +
-    '<div class="cue">Track '+d.track+' &middot; piece '+(idx+1)+' of '+queue.length+'</div>' +
+  var drillWord = queue.length===1 ? 'drill' : 'drills';
+  var bannerHtml = ruleFilterId ? ('<div class="filterbanner"><span class="fb-text">Practicing: <b>'+esc(ruleFilterLabel)+'</b> &middot; '+queue.length+' '+drillWord+'</span> <button class="btn small ghost" id="clearRuleFilterBtn">Show all drills</button></div>') : '';
+  var promptHtml = bannerHtml + '<div class="prompt"><div class="eng">'+esc(d.prompt)+'</div>' +
+    '<div class="cue">Track '+d.track+' &middot; drill '+(idx+1)+' of '+queue.length+'</div>' +
     stepsHtml + '</div>';
 
   var answerHtml = "";
@@ -1059,7 +1057,7 @@ function renderSummary(){
     var s = byTrack[t];
     return '<div class="trackrow"><span class="l">Track '+t+'</span><span>'+s.ok+'/'+s.total+'</span></div>';
   }).join('') : '';
-  var summaryLine = 'Built '+built+' of '+queue.length+(stuck ? ', '+stuck+' still stuck' : '')+'.';
+  var summaryLine = built+' of '+queue.length+' got it'+(stuck ? ', '+stuck+' not yet' : '')+'.';
   return '<div class="summary"><h2>Session complete</h2>' +
     '<p class="summary-line">'+summaryLine+'</p>' +
     (rows ? '<div class="tracks">'+rows+'</div>' : '') +
