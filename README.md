@@ -36,10 +36,15 @@ rejected before anything is written.
   an extension drill uses only rules and vocabulary already introduced.
 - Rules are written in the teacher's own derivational language ("take the
   -ar off and put -ado on"), never grammar-book terms.
-- The UI stays plain on purpose: no gradients, emoji-as-icons, or decorative
-  animation — a two-surface dark/paper palette, hairline-divided lists,
-  bordered cards reserved for the two things that are genuinely separate
-  objects (the prompt, the revealed answer).
+- The UI stays plain on purpose, and follows the [no-slop-ui](https://github.com/LeoStehlik/no-slop-ui)
+  standard (MIT) — functional and normal rather than impressive. Concretely:
+  one system sans (no serif/sans mix), a near-black/near-white palette with a
+  single amber accent, radii capped at 6–10px on controls and 12px on cards,
+  a 4/8/12/16/24/32px spacing scale, 1px borders and no shadows, no gradients,
+  no emoji-as-icons, and hover states that change colour rather than move
+  anything. The one light surface is the revealed answer, which earns it: the
+  jump from dark chrome to a light card is what marks the answer as a separate
+  object from the prompt you were working on.
 - Track 1 (the course's own orientation) has no Spanish in it at all, so its
   pack is rules only, no drills — an honest empty array beats a manufactured
   quiz the transcript doesn't support. Track 90 (dialect variation) is the
