@@ -53,7 +53,11 @@ body{
 }
 .iconbtn:hover{background:var(--surface);border-color:var(--text)}
 .iconbtn:active{opacity:.7}
-.rail{height:3px;background:var(--border);position:relative;overflow:hidden}
+/* the empty track recedes into the surrounding chrome (matches #top/#tabs'
+   own background) so only the filled, accent portion actually reads as
+   something - an unfilled full-width bar at rest would otherwise look like
+   a stray line rather than "0% of a real thing" */
+.rail{height:3px;background:var(--bg);position:relative;overflow:hidden}
 .rail > i{position:absolute;inset:0 auto 0 0;background:var(--accent);transition:width .2s ease}
 #tabs{display:flex;gap:var(--sp-1);padding:var(--sp-2) 1rem 0;background:var(--bg)}
 .tab{
@@ -65,6 +69,25 @@ body{
 .tab:hover{color:var(--text)}
 .tab.active{color:var(--accent);border-bottom-color:var(--accent)}
 main{flex:1;padding:var(--sp-4) 1rem calc(var(--bar) + var(--sp-5));background:var(--surface)}
+/* The drill screen is one focused thing at a time (a prompt, then an
+   answer) - top-aligned it left most of a phone screen empty and looking
+   unfinished. Centering it between the tab strip and the action bar puts it
+   where the eye rests, the way flashcard/drill UIs normally behave. This
+   only changes box layout (children still just stack top-to-bottom), and a
+   flex column item's default min-height is its content size, so a tall
+   drill (long prompt + several revealed steps + the answer) still renders
+   in full and scrolls normally instead of being centered-and-clipped. */
+/* main's default bottom padding reserves room for the sticky bar so it never
+   covers real content while scrolling a tall drill - but that reserve is
+   asymmetric (much bigger than the top padding), which biases naive
+   centering upward. Mirroring the same amount on top keeps the reserve's
+   safety property (still >= the bar's own height) while making the
+   available box symmetric, so centering it actually looks centered instead
+   of centred within a lopsided box. */
+main.view-drill{
+  display:flex;flex-direction:column;justify-content:center;
+  padding-top:var(--bar);padding-bottom:var(--bar);
+}
 .bar{
   position:sticky;bottom:0;left:0;right:0;
   display:flex;gap:var(--sp-2);padding:var(--sp-3) 1rem calc(var(--sp-3) + env(safe-area-inset-bottom)) 1rem;
@@ -159,8 +182,13 @@ main{flex:1;padding:var(--sp-4) 1rem calc(var(--bar) + var(--sp-5));background:v
   background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-lg);
   padding:var(--sp-4);margin-bottom:var(--sp-4);
 }
-.eng{font-style:italic;font-size:1.25rem;line-height:1.45;color:var(--text)}
-.cue{color:var(--muted);font-size:var(--fs-small);margin-top:var(--sp-2)}
+/* Pre-reveal, this prompt is the only content on screen and the thing the
+   learner has to act on, so it carries real weight - heading-scale, bold.
+   Dropped the italic that used to be its only distinguishing touch: with
+   size and weight already doing that job, italic on every single prompt was
+   just a stylistic tic, not doing any further semantic work. */
+.eng{font-weight:700;font-size:1.5rem;line-height:1.3;color:var(--text)}
+.cue{color:var(--muted);font-size:var(--fs-small);margin-top:var(--sp-3)}
 .src-tag{font-style:italic}
 .steps{list-style:none;margin:var(--sp-4) 0 0;padding:0;display:flex;flex-direction:column;gap:var(--sp-2)}
 .steps li{
@@ -784,6 +812,9 @@ function railHtml(){
   if(!pack || view==="home") return '';
   var pct = queue.length ? Math.round((idx/queue.length)*100) : 0;
   if(view==="summary") pct = 100;
+  // At the very start there's nothing to show yet - an empty full-width bar
+  // just reads as a stray line, not as "0% of something", so skip it.
+  if(pct === 0) return '';
   return '<div class="rail"><i style="width:'+pct+'%"></i></div>';
 }
 
@@ -1114,7 +1145,7 @@ function render(){
     selStart = active.selectionStart; selEnd = active.selectionEnd;
   }
 
-  var html = topBarHtml() + railHtml() + tabsHtml() + '<main id="main">';
+  var html = topBarHtml() + railHtml() + tabsHtml() + '<main id="main" class="view-'+view+'">';
 
   if(view==="home"){
     html += renderHome();
