@@ -57,3 +57,22 @@ python3 app/build_app.py   # data/combined-final.json + the template -> index.ht
 - `skill/scripts/validate_pack.py` — structural checks for a pack before it
   goes in (Spanish leaking into an English prompt, unlinked rules, missing
   scaffolding).
+- `skill/scripts/validate_dataset.py` — checks the invariants that only exist
+  across the whole combined dataset, chiefly around `family`: every rule has
+  one, exactly one copy per family is the introduction, and no two families
+  introduce themselves under the same title (that's a rule taught twice under
+  two slugs).
+
+**Before shipping a content or template change, run `npm test`** (no install
+step — it's a wrapper around `scripts/check.sh`, needs only python3 and
+node). It runs `validate_pack.py` over all 90 packs, `validate_dataset.py`
+across the dataset, a static check that the template still reads/writes the
+`lt-review:<packId>` / `lt-review-done` localStorage keys real users'
+progress lives in (there's no server copy — silently renaming either wipes
+everyone), confirms `index.html` is exactly what `build_app.py` currently
+produces (reported as a warning while other passes are still mid-flight,
+promotable to a hard failure with `LT_STRICT_BUILD=1`), and drives the app
+in headless Chromium through opening a track, grading a drill, reaching the
+summary, and practicing a rule from the "All rules" glossary — plus seeding
+a known progress blob and confirming it's read back and resumed correctly,
+so a build that breaks any of this fails loudly instead of shipping.

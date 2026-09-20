@@ -1,0 +1,8 @@
+{
+  "name": "spanish-language-transfer-review-checks",
+  "private": true,
+  "description": "Runs the whole quality check for this repo (see scripts/check.sh). No install step: python3 and node are used directly, Playwright/Chromium are resolved from the environment's preinstalled copy.",
+  "scripts": {
+    "test": "bash scripts/check.sh"
+  }
+}
