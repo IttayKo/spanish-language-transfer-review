@@ -6,7 +6,7 @@
 <title>Complete Spanish — Review</title>
 <meta name="description" content="An unofficial companion for practicing Language Transfer's Complete Spanish course: speaking drills and a searchable grammar glossary.">
 <link rel="manifest" href="/manifest.json">
-<meta name="theme-color" content="#0d1117">
+<meta name="theme-color" content="#FAF8F4">
 <link rel="icon" href="/icons/favicon-32.png" sizes="32x32" type="image/png">
 <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -14,312 +14,393 @@
 <meta name="apple-mobile-web-app-title" content="CS Review">
 <style>
 :root{
-  --bg:#0d1117; --surface:#161b22; --border:#6e7681;
-  --text:#c9d1d9; --muted:#8b949e; --accent:#d29922; --accent-ink:#0d1117;
-  --paper:#f5f4f2; --paper-border:#8a8377; --paper-text:#1c1917; --paper-muted:#57534e; --paper-chip:#ece9e3;
-  --danger:#ff7b72;
-  --sans: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  --bar:4.6rem;
-  --fs-caption:.75rem; --fs-small:.85rem; --fs-body:.95rem; --fs-heading-sm:1.1rem;
-  --radius-sm:.375rem; --radius-md:.5rem; --radius-lg:.75rem;
-  /* one spacing scale, on the 4/8/12/16/24/32px steps, nothing off it */
-  --sp-1:.25rem; --sp-2:.5rem; --sp-3:.75rem; --sp-4:1rem; --sp-5:1.5rem; --sp-6:2rem;
+  /* Direction A, "Primer" - ink on warm paper. No cards, no boxes. Ratios
+     computed with the WCAG relative-luminance formula; see redesign PLAN.md
+     section 4.1 for the worked numbers. */
+  --paper:#FAF8F4;      /* page ground */
+  --sunk:#F0ECE4;       /* recessed / inactive surface, and the "arrived from Why" bleed */
+  --ink:#23201C;        /* 15.29:1 on paper - body text, filled buttons */
+  --ink-2:#635D54;      /* 6.14:1 - secondary prose, revealed English */
+  --ink-3:#6E675D;      /* 5.26:1 - cue lines, counters, periphery */
+  --edge:#8C8475;       /* 3.49:1 - meaningful boundaries only (never text) */
+  --rule:#DDD6C8;       /* decorative row hairline */
+  --rule-2:#CFC7B6;     /* decorative section hairline */
+  --mark:#194A93;       /* 8.11:1 - links, rule cross-refs, live things */
+  --flag:#9C3626;       /* 6.67:1 - statements about reliability: Not yet, not-from-the-recording */
+  --danger:var(--flag);
+  --sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --bar:5rem;
+  /* Bumped up a step from the original scale - the redesign's first review
+     round came back "way too tight" across every screen. Rows get taller,
+     gaps get wider; smaller type and raggeder wrapping are an accepted
+     trade for it (see the truncation removals below). */
+  --s1:4px; --s2:10px; --s3:16px; --s4:20px; --s5:32px; --s6:44px; --s7:64px;
 }
 *{box-sizing:border-box}
 html,body{margin:0;padding:0}
-:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
-.btn.primary:focus-visible{outline-color:var(--text)}
-.answer :focus-visible{outline-color:var(--paper-text)}
+:focus-visible{outline:2px solid var(--mark);outline-offset:2px;border-radius:2px}
 body{
-  background:var(--bg);
-  color:var(--text);
+  background:var(--paper);
+  color:var(--ink);
   font-family:var(--sans);
+  font-size:16px;line-height:1.55;
   -webkit-font-smoothing:antialiased;
+  font-variant-numeric:tabular-nums;
 }
-.app{max-width:640px;margin:0 auto;min-height:100dvh;display:flex;flex-direction:column;background:var(--surface);}
-#top{
-  position:sticky;top:0;z-index:5;
-  display:flex;align-items:center;gap:var(--sp-2);
-  padding:var(--sp-4);
-  background:var(--bg);
-  border-bottom:1px solid var(--border);
-}
-#top h1{font-size:1rem;font-weight:600;margin:0;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text)}
-.iconbtn{
-  appearance:none;border:1px solid var(--border);background:transparent;color:var(--text);
-  border-radius:var(--radius-sm);padding:var(--sp-3);font-size:var(--fs-small);cursor:pointer;font-family:var(--sans);
-  display:inline-flex;align-items:center;gap:var(--sp-1);white-space:nowrap;min-height:2.75rem;
-  transition:background-color .15s ease,border-color .15s ease;
-}
-.iconbtn:hover{background:var(--surface);border-color:var(--text)}
-.iconbtn:active{opacity:.7}
-/* the empty track recedes into the surrounding chrome (matches #top/#tabs'
-   own background) so only the filled, accent portion actually reads as
-   something - an unfilled full-width bar at rest would otherwise look like
-   a stray line rather than "0% of a real thing" */
-.rail{height:3px;background:var(--bg);position:relative;overflow:hidden}
-.rail > i{position:absolute;inset:0 auto 0 0;background:var(--accent);transition:width .2s ease}
-#tabs{display:flex;gap:var(--sp-1);padding:var(--sp-2) 1rem 0;background:var(--bg)}
-.tab{
-  appearance:none;border:none;background:transparent;color:var(--muted);
-  padding:var(--sp-3) 1rem;border-radius:var(--radius-sm) var(--radius-sm) 0 0;font-size:var(--fs-small);cursor:pointer;font-family:var(--sans);
-  border-bottom:2px solid transparent;
-  transition:color .15s ease,border-color .15s ease;
-}
-.tab:hover{color:var(--text)}
-.tab.active{color:var(--accent);border-bottom-color:var(--accent)}
-main{flex:1;padding:var(--sp-4) 1rem calc(var(--bar) + var(--sp-5));background:var(--surface)}
-/* The drill screen is one focused thing at a time (a prompt, then an
-   answer) - top-aligned it left most of a phone screen empty and looking
-   unfinished. Centering it between the tab strip and the action bar puts it
-   where the eye rests, the way flashcard/drill UIs normally behave. This
-   only changes box layout (children still just stack top-to-bottom), and a
-   flex column item's default min-height is its content size, so a tall
-   drill (long prompt + several revealed steps + the answer) still renders
-   in full and scrolls normally instead of being centered-and-clipped. */
-/* main's default bottom padding reserves room for the sticky bar so it never
-   covers real content while scrolling a tall drill - but that reserve is
-   asymmetric (much bigger than the top padding), which biases naive
-   centering upward. Mirroring the same amount on top keeps the reserve's
-   safety property (still >= the bar's own height) while making the
-   available box symmetric, so centering it actually looks centered instead
-   of centred within a lopsided box. */
-main.view-drill{
-  display:flex;flex-direction:column;justify-content:center;
-  padding-top:var(--bar);padding-bottom:var(--bar);
-}
-.bar{
-  position:sticky;bottom:0;left:0;right:0;
-  display:flex;gap:var(--sp-2);padding:var(--sp-3) 1rem calc(var(--sp-3) + env(safe-area-inset-bottom)) 1rem;
-  background:var(--surface);border-top:1px solid var(--border);
-  min-height:var(--bar);align-items:center;
-}
-.btn{
-  flex:1;appearance:none;border:1px solid var(--border);background:var(--bg);color:var(--text);
-  border-radius:var(--radius-md);padding:var(--sp-4);font-size:var(--fs-body);cursor:pointer;font-family:var(--sans);font-weight:600;
-  transition:background-color .15s ease,border-color .15s ease,opacity .15s ease;
-}
-.btn:hover{border-color:var(--text)}
-.btn:active{opacity:.85}
-.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
-.btn.primary:hover{background:var(--accent);border-color:var(--text)}
-.btn.ghost{background:transparent}
-.btn.small{flex:none;padding:var(--sp-2) var(--sp-3);font-size:var(--fs-small);font-weight:500;min-height:2.75rem}
+button{font:inherit;color:inherit;font-variant-numeric:inherit}
+.app{max-width:42rem;margin:0 auto;padding:0 20px;min-height:100dvh;display:flex;flex-direction:column;background:var(--paper);}
+main{flex:1;padding:0 0 calc(var(--bar) + var(--s5))}
 
-/* browser / home */
-.home-hero{padding:var(--sp-1) 0 var(--sp-5)}
-.home-hero p{color:var(--muted);font-size:var(--fs-body);line-height:1.5;margin:0}
-.packlist{display:flex;flex-direction:column;gap:var(--sp-2)}
-.packcard{
-  display:flex;align-items:center;gap:var(--sp-3);
-  border-bottom:1px solid var(--border);
-  text-align:left;color:var(--text);font-family:var(--sans);
-  width:100%;position:relative;
+/* ---- running head: home's only persistent chrome ---- */
+.head{display:flex;align-items:baseline;gap:var(--s3);padding:22px 0 0;min-height:48px}
+.head .name{font-size:.9375rem;font-weight:600;letter-spacing:-.003em}
+.head .stat{margin-left:auto;font-size:.8125rem;color:var(--ink-3);white-space:nowrap}
+.measure{height:3px;background:var(--rule-2);margin:12px 0 0;position:relative}
+.measure i{position:absolute;inset:0 auto 0 0;background:var(--ink)}
+
+/* ---- pack-view header: back arrow + Drills/Rules tabs, one row ---- */
+.topline{display:flex;align-items:stretch;gap:var(--s4);border-bottom:1px solid var(--rule);padding-top:8px}
+.tabs{display:flex;gap:var(--s5)}
+.tabs button{
+  appearance:none;border:0;background:none;padding:14px 0 13px;min-height:48px;
+  font-size:.9375rem;color:var(--ink-3);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;
 }
-.packlist .packcard:last-child{border-bottom:none}
-.packcard:hover{background:var(--bg)}
-.packcard.done{opacity:.85}
-.packcard.done .meta .sub{opacity:.7}
-.packcard .num{
-  font-weight:700;font-size:var(--fs-heading-sm);color:var(--accent);
-  min-width:2rem;text-align:center;
+.tabs button[aria-selected="true"]{color:var(--ink);font-weight:600;border-bottom-color:var(--ink)}
+
+/* ---- glossary / backup header: back link, title, one-line count ---- */
+.gh{padding:18px 0 0}
+.gh h1{font-size:1.25rem;font-weight:600;letter-spacing:-.014em;margin:8px 0 0}
+.gh .gcount{padding-top:6px;line-height:1.5}
+
+.back{
+  appearance:none;border:0;background:none;padding:14px 0;margin:0;
+  min-height:48px;display:inline-flex;align-items:center;gap:6px;
+  color:var(--mark);font-size:.875rem;cursor:pointer;
 }
-.packcard .meta{flex:1;min-width:0}
-.packcard .meta .sub{white-space:normal;overflow-wrap:break-word;color:var(--text);font-size:var(--fs-small);line-height:1.35}
-.packcard .prog{font-size:var(--fs-caption);color:var(--muted);white-space:nowrap}
-.packcard .prog.done{color:var(--accent)}
+.topline .back{padding:0;min-width:44px;justify-content:flex-start;margin-right:-6px;font-size:1.0625rem}
+
+/* ---- search: a line to write on, not a box ---- */
+.searchrow{position:relative;margin:var(--s5) 0 var(--s4)}
+.searchrow input{
+  width:100%;appearance:none;background:transparent;border:0;
+  border-bottom:1.5px solid var(--edge);
+  padding:14px 0;font:inherit;font-size:.9375rem;color:var(--ink);min-height:48px;
+}
+.searchrow input::placeholder{color:var(--ink-3)}
+
+/* ---- the next thing to do ---- */
+.home-hero{padding:var(--s5) 0 var(--s5)}
+.home-hero .lbl{font-size:.8125rem;color:var(--ink-3);margin-bottom:8px}
+.home-hero .t{font-size:1.375rem;line-height:1.3;font-weight:600;letter-spacing:-.012em;margin-bottom:8px}
+.home-hero .b{font-size:.9375rem;color:var(--ink-2);line-height:1.55;max-width:34ch;margin:0}
+/* Full width, like the primary button in the drill bar. Shrink-wrapped it
+   hangs flush-left under the description with nothing balancing it. */
+.home-hero .btn{display:block;width:100%;margin-top:var(--s3)}
+.linkrow{border-top:1px solid var(--rule);padding-top:var(--s3);margin-top:var(--s3)}
+.linkrow:first-child{margin-top:0}
+.link{
+  appearance:none;border:0;background:none;padding:16px 0;min-height:48px;
+  color:var(--mark);font-size:.9375rem;cursor:pointer;text-align:left;
+  display:block;width:100%;
+}
+.link .sub{display:block;color:var(--ink-3);font-size:.8125rem;line-height:1.5;margin-top:4px;max-width:40ch;font-weight:400}
+
+/* ---- sections & track rows: a table of contents, not cards ---- */
+.section-head{padding:var(--s6) 0 var(--s3);border-top:1.5px solid var(--rule-2);margin-top:var(--s5)}
+.section-head:first-of-type{margin-top:var(--s3);padding-top:var(--s2);border-top:0}
+.section-head .r{font-size:.8125rem;color:var(--ink-3)}
+.section-head h3{margin:4px 0 6px;font-size:1rem;font-weight:600;letter-spacing:-.008em}
+.section-head p{margin:0;font-size:.8125rem;line-height:1.55;color:var(--ink-3);max-width:44ch}
+
+.packlist{margin:0}
+.packcard{display:flex;align-items:flex-start;border-top:1px solid var(--rule)}
+.packlist .packcard:first-child{border-top:0}
 .rowbtn{
-  appearance:none;background:none;border:none;color:inherit;font:inherit;margin:0;
-  padding:var(--sp-3) 1rem var(--sp-3) 0;min-height:2.75rem;
-  cursor:pointer;display:flex;align-items:center;gap:var(--sp-3);flex:1;min-width:0;text-align:left;
+  appearance:none;border:0;background:none;flex:1;min-width:0;cursor:pointer;
+  display:flex;gap:var(--s3);padding:16px 0;min-height:48px;text-align:left;align-items:flex-start;
+  color:inherit;font:inherit;margin:0;
 }
+.packcard .num{width:1.75rem;flex:none;text-align:right;font-size:.9375rem;color:var(--ink-3);padding-top:2px;font-weight:400}
+.packcard .meta{flex:1;min-width:0}
+/* No truncation: the full blurb wraps onto as many lines as it needs
+   (smaller type and ragged wraps are fine, hiding the description isn't). */
+.packcard .meta .sub{font-size:.9375rem;line-height:1.5;color:var(--ink)}
+.packcard.done .meta .sub{color:var(--ink-2)}
+/* The count lives under the done circle, not inline, so the description
+   gets the full width of the line. */
+.packcard .rowend{flex:none;display:flex;flex-direction:column;align-items:center;width:3.25rem;padding-top:10px}
+.packcard .prog{font-size:.75rem;color:var(--ink-3);line-height:1.3;text-align:center;margin-top:-6px}
 .donebtn{
-  appearance:none;flex:none;width:2.75rem;height:2.75rem;border:none;background:none;
-  margin-left:1rem;
+  appearance:none;border:0;background:none;width:44px;height:44px;flex:none;
   padding:0;cursor:pointer;display:flex;align-items:center;justify-content:center;
 }
 .donebtn-circle{
-  width:1.7rem;height:1.7rem;border-radius:50%;
-  border:1px solid var(--border);background:transparent;color:transparent;
-  font-size:.8rem;line-height:1;display:flex;align-items:center;justify-content:center;
-  transition:background-color .15s ease,border-color .15s ease;
+  width:19px;height:19px;border-radius:50%;border:1.5px solid var(--edge);
+  display:block;position:relative;background:transparent;
 }
-.donebtn:hover .donebtn-circle{border-color:var(--text)}
-.donebtn.on .donebtn-circle{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
-.searchrow{margin:0 0 var(--sp-4)}
-.searchrow input{
-  width:100%;padding:var(--sp-3) var(--sp-4);border-radius:var(--radius-sm);border:1px solid var(--border);
-  background:var(--bg);color:var(--text);font-family:var(--sans);font-size:var(--fs-body);
+.donebtn.on .donebtn-circle{background:var(--ink);border-color:var(--ink)}
+.donebtn.on .donebtn-circle::after{
+  content:"";position:absolute;left:5px;top:3px;width:5px;height:9px;
+  border:solid var(--paper);border-width:0 1.5px 1.5px 0;transform:rotate(43deg);
 }
-.searchrow input::placeholder{color:var(--muted)}
 
-.continue-card{
-  display:flex;align-items:center;gap:var(--sp-3);
-  background:var(--bg);
-  border:1px solid var(--border);border-radius:var(--radius-lg);padding:1rem;margin-bottom:var(--sp-4);
-}
-.continue-card .meta{flex:1;min-width:0}
-.continue-card .meta .lbl{font-weight:700;font-size:var(--fs-body);color:var(--accent)}
-.continue-card.done-all .meta .lbl{color:var(--text)}
-.continue-card .meta .sub{color:var(--muted);font-size:var(--fs-small);margin-top:var(--sp-1)}
-.continue-card .btn{flex:none}
-
-.section-head{margin:var(--sp-5) 0 var(--sp-2)}
-.section-head:first-of-type{margin-top:0}
-.section-head h3{font-size:var(--fs-heading-sm);font-weight:700;margin:0 0 var(--sp-1);color:var(--text)}
-.section-head p{color:var(--muted);font-size:var(--fs-small);line-height:1.4;margin:0}
-
-/* drill */
-.filterbanner{
-  display:flex;align-items:center;flex-wrap:wrap;gap:var(--sp-2);
-  background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);
-  padding:var(--sp-2) var(--sp-3);margin-bottom:var(--sp-3);font-size:var(--fs-small);color:var(--muted);
-}
-.filterbanner b{color:var(--text)}
-.filterbanner .fb-text{flex:1 1 auto;min-width:0}
-.filterbanner .btn.small{margin-left:auto}
-.prompt{
-  background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-lg);
-  padding:var(--sp-4);margin-bottom:var(--sp-4);
-}
-/* Pre-reveal, this prompt is the only content on screen and the thing the
-   learner has to act on, so it carries real weight - heading-scale, bold.
-   Dropped the italic that used to be its only distinguishing touch: with
-   size and weight already doing that job, italic on every single prompt was
-   just a stylistic tic, not doing any further semantic work. */
-.eng{font-weight:700;font-size:1.5rem;line-height:1.3;color:var(--text)}
-.cue{color:var(--muted);font-size:var(--fs-small);margin-top:var(--sp-3)}
-.src-tag{font-style:italic}
-.steps{list-style:none;margin:var(--sp-4) 0 0;padding:0;display:flex;flex-direction:column;gap:var(--sp-2)}
-.steps li{
-  background:var(--surface);border-radius:var(--radius-sm);
-  padding:var(--sp-2) var(--sp-3);font-size:var(--fs-small);color:var(--muted);
-}
-.answer{
-  background:var(--paper);color:var(--paper-text);border-radius:var(--radius-lg);padding:var(--sp-4);margin-bottom:var(--sp-4);
-}
-.answer .es{font-size:1.35rem;line-height:1.4;font-weight:700}
-.answer .note{margin-top:var(--sp-2);font-size:var(--fs-small);color:var(--paper-muted);font-style:italic}
-.answer .flag{
-  display:inline-block;margin-top:var(--sp-2);font-size:var(--fs-caption);background:var(--paper-chip);border:1px solid var(--paper-border);
-  border-radius:var(--radius-sm);padding:var(--sp-1) var(--sp-2);color:var(--paper-muted);font-style:italic;
-}
-.answer .speak{
-  margin-top:var(--sp-3);appearance:none;border:1px solid var(--paper-border);background:transparent;color:var(--paper-muted);
-  border-radius:var(--radius-sm);padding:var(--sp-2) var(--sp-3);font-size:var(--fs-small);cursor:pointer;font-family:var(--sans);
-  min-height:2.75rem;display:inline-flex;align-items:center;justify-content:flex-start;text-align:left;
-  transition:border-color .15s ease;
-}
-.answer .speak:hover{border-color:var(--paper-text)}
-.why{margin-top:var(--sp-4);padding-top:var(--sp-3);border-top:1px dashed var(--paper-border)}
-.why .why-lbl{font-size:var(--fs-caption);text-transform:uppercase;letter-spacing:.05em;color:var(--paper-muted);margin-bottom:var(--sp-2)}
-.rulelink{
-  display:inline-flex;align-items:center;gap:var(--sp-1);
-  background:var(--paper-chip);border:1px solid var(--paper-border);border-radius:var(--radius-sm);
-  padding:var(--sp-1) var(--sp-2);font-size:var(--fs-small);color:var(--paper-text);cursor:pointer;margin:var(--sp-1) var(--sp-1) var(--sp-1) 0;font-family:var(--sans);
-  min-height:2.75rem;text-align:left;justify-content:flex-start;
-  transition:border-color .15s ease;
-}
-.rulelink:hover{border-color:var(--accent)}
-.rulelink .arrow{opacity:.6}
-
-/* rules — hairline rows, same discipline as the glossary below, not cards */
-.rules-list{margin:0}
-.rule{
-  border-bottom:1px solid var(--border);
-  padding:var(--sp-5) 0;scroll-margin-top:6rem;
-}
-.rules-list .rule:last-child{border-bottom:none}
-.rule.highlight{
-  background:rgba(210,153,34,.12);border-radius:var(--radius-sm);
-  margin:0 calc(var(--sp-3) * -1);padding:var(--sp-5) var(--sp-3);
-}
-.rule h3{margin:0 0 var(--sp-2);font-size:var(--fs-heading-sm);font-weight:700;color:var(--text)}
-.rule p{margin:0 0 var(--sp-2);font-size:var(--fs-small);line-height:1.5;color:var(--text)}
-.rule ul{margin:0 0 var(--sp-3);padding-left:1.1rem}
-.rule ul li{font-size:var(--fs-small);color:var(--muted);margin-bottom:var(--sp-1)}
-.rule .src{font-size:var(--fs-caption);color:var(--muted)}
-.rule .practicebtn, .gpractice{
-  margin-top:var(--sp-2);appearance:none;border:1px solid var(--border);background:transparent;color:var(--accent);
-  border-radius:var(--radius-sm);padding:var(--sp-2) var(--sp-3);font-size:var(--fs-small);cursor:pointer;font-family:var(--sans);
-  min-height:2.75rem;display:inline-flex;align-items:center;justify-content:flex-start;text-align:left;
-  transition:border-color .15s ease;
-}
-.rule .practicebtn:hover, .gpractice:hover{border-color:var(--accent)}
-
-/* glossary */
-.glossrow{border-bottom:1px solid var(--border)}
-.glosslist .glossrow:last-child{border-bottom:none}
-.glosshead{
-  appearance:none;border:none;background:none;width:100%;
-  display:flex;align-items:center;gap:var(--sp-3);
-  padding:var(--sp-3) 0;margin:0;cursor:pointer;min-height:2.75rem;
-  color:var(--text);font-family:var(--sans);text-align:left;
-}
-.glosshead:hover{background:var(--bg)}
-.glosshead .num{
-  font-weight:700;font-size:var(--fs-heading-sm);color:var(--accent);
-  min-width:2rem;text-align:center;
-}
-.glosshead .t{flex:1;min-width:0;font-size:var(--fs-small);line-height:1.35;overflow-wrap:break-word}
-.glosshead .n{font-size:var(--fs-caption);color:var(--muted);white-space:nowrap}
-.glosshead .chev{color:var(--muted);font-size:var(--fs-caption);width:.9rem;text-align:center;flex:none}
-.glosshead[aria-expanded="true"] .t{color:var(--accent)}
-.glosspanel{padding:0 0 var(--sp-4) calc(2rem + var(--sp-3))}
-.glosspanel p{margin:0 0 var(--sp-2);font-size:var(--fs-small);line-height:1.5;color:var(--text)}
-.glosspanel ul{margin:0 0 var(--sp-3);padding-left:1.1rem}
-.glosspanel ul li{font-size:var(--fs-small);color:var(--muted);margin-bottom:var(--sp-1)}
-.glosspanel .where{font-size:var(--fs-caption);color:var(--muted);line-height:1.5;margin-bottom:var(--sp-1)}
-.glosspanel .variant{border-left:2px solid var(--border);padding-left:var(--sp-3);margin:0 0 var(--sp-3)}
-.glosspanel .variant .vlbl{
-  font-size:var(--fs-caption);text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-bottom:var(--sp-1);
-}
-.glosspanel .variant p:last-child{margin-bottom:0}
-.practicerow{display:flex;flex-wrap:wrap;gap:var(--sp-2)}
-.glossjump{
-  appearance:none;background:none;border:none;border-bottom:1px solid var(--border);
-  width:100%;display:flex;align-items:center;gap:var(--sp-2);
-  padding:var(--sp-3) 0;margin:0 0 var(--sp-1);cursor:pointer;min-height:2.75rem;
-  color:var(--accent);font-family:var(--sans);font-size:var(--fs-small);text-align:left;
-}
-.glossjump:hover{background:var(--bg)}
-.glossjump .arrow{margin-left:auto;opacity:.7}
-
-/* summary */
-.summary h2{font-size:1.4rem;font-weight:700;margin:var(--sp-1) 0 var(--sp-4);color:var(--text)}
-.summary-line{color:var(--text);font-size:var(--fs-body);margin:0 0 var(--sp-5)}
-.trackrow{display:flex;justify-content:space-between;font-size:var(--fs-small);padding:var(--sp-2) 0;border-bottom:1px solid var(--border)}
-.trackrow .l{color:var(--muted)}
-
-.empty{color:var(--muted);text-align:center;padding:var(--sp-6) 1rem;font-size:var(--fs-body)}
-
-/* home footer utility link (backup) - deliberately low-key, not a primary action */
-.footlink{text-align:center;margin-top:var(--sp-5)}
+.footlink{margin:var(--s7) 0 var(--s6);border-top:1px solid var(--rule);padding-top:var(--s3)}
 .footlink button{
-  appearance:none;border:none;background:none;color:var(--muted);font-family:var(--sans);
-  font-size:var(--fs-small);cursor:pointer;padding:var(--sp-3) var(--sp-4);min-height:2.75rem;
-  text-decoration:underline;text-underline-offset:2px;
+  appearance:none;border:0;background:none;padding:16px 0;min-height:48px;
+  color:var(--ink-3);font-size:.875rem;cursor:pointer;
+  text-decoration:underline;text-underline-offset:3px;text-decoration-color:var(--rule-2);
 }
-.footlink button:hover{color:var(--text)}
 
-/* backup: export / import progress - hairline rows, same discipline as rules/glossary */
-.backup-list{margin:0}
-.backup-row{border-bottom:1px solid var(--border);padding:var(--sp-5) 0}
-.backup-list .backup-row:last-child{border-bottom:none}
-.backup-row h3{margin:0 0 var(--sp-2);font-size:var(--fs-heading-sm);font-weight:700;color:var(--text)}
-.backup-row p{margin:0 0 var(--sp-3);font-size:var(--fs-small);line-height:1.5;color:var(--muted)}
-.radiorow{
-  display:flex;align-items:flex-start;gap:var(--sp-2);padding:var(--sp-2) 0;min-height:2.75rem;
-  cursor:pointer;font-size:var(--fs-small);color:var(--text);
+/* the "N rules match in All rules" jump row - a plain link row, same
+   discipline as .link above */
+.glossjump{
+  appearance:none;border:0;background:none;width:100%;padding:16px 0;min-height:48px;
+  color:var(--mark);font-size:.9375rem;cursor:pointer;text-align:left;
+  border-top:1px solid var(--rule);display:flex;align-items:center;gap:var(--s2);
 }
-.radiorow input{margin-top:.2rem;flex:none;width:1.1rem;height:1.1rem;accent-color:var(--accent)}
-.radiorow b{color:var(--text)}
-.radiorow.confirm{color:var(--accent)}
+.glossjump .arrow{margin-left:auto;color:var(--ink-3)}
+
+.empty{color:var(--ink-3);text-align:center;padding:var(--s6) 0;font-size:.9375rem}
+
+/* ---- drill ---- */
+/* The drill is the one screen that behaves like an app, not a document: the
+   running head, the stage and the action bar are laid out inside exactly
+   one viewport and the page itself never scrolls - no reaching, no losing
+   the prompt off the top mid-thought. Nothing is clipped or truncated to
+   get there. Every size below is in em off .stage, so fitDrill() can
+   squeeze the whole composition - whitespace first (--gap), then type
+   (--fit) - and have the spacing stay in proportion to the text instead of
+   detaching from it. The action bar sits outside .stage on purpose: the
+   two buttons you actually press keep their full size at every squeeze. */
+html.lock, body.lock{height:100dvh;overflow:hidden;overscroll-behavior:none}
+body.lock .app{height:100dvh;overflow:hidden}
+main.view-drill{flex:1;min-height:0;display:flex;flex-direction:column;padding-bottom:0;overflow:hidden}
+/* Top-anchored at every size. Slack collects below the content, above the
+   bar, so revealing the answer adds to the bottom and never lifts the
+   prompt the learner is still reading. */
+.stage{flex:1;min-height:0;overflow:hidden;font-size:calc(1rem * var(--fit,1))}
+
+.filterbanner{font-size:.8125em;line-height:1.5;color:var(--ink-3);padding:0 0 calc(1em * var(--gap,1));display:flex;align-items:baseline;flex-wrap:wrap;gap:.25em .625em}
+.filterbanner b{color:var(--ink);font-weight:600}
+.filterbanner .link-inline{
+  appearance:none;border:0;background:none;padding:0;margin:0;min-height:auto;
+  color:var(--mark);font-size:inherit;cursor:pointer;text-decoration:underline;text-underline-offset:2px;
+}
+.cue{
+  font-size:.8125em;color:var(--ink-3);padding:calc(1.75em * var(--gap,1)) 0 calc(1.375em * var(--gap,1));
+  display:flex;align-items:baseline;gap:1em;
+}
+.cue .flag{color:var(--flag)}
+.undo{
+  appearance:none;border:0;background:none;padding:0;margin-left:auto;
+  color:var(--ink-3);font-size:1em;cursor:pointer;white-space:nowrap;
+  text-decoration:underline;text-underline-offset:3px;text-decoration-color:var(--rule-2);
+}
+.eng{font-size:1.75em;line-height:1.34;letter-spacing:-.017em;max-width:22ch;font-weight:400}
+.eng .reg{display:block;margin-top:.45em;color:var(--ink-3);font-size:.5em;letter-spacing:0;font-weight:400}
+/* Revealing the answer must not recompose this: same size, same position,
+   same max-width - only the colour dims a shade, so nothing the learner was
+   reading jumps. See .answer below for where the "event" of revealing
+   actually lives instead. */
+.eng.answered{color:var(--ink-2)}
+.eng.answered .reg{color:var(--ink-3)}
+
+/* One group, not a boxed-off strip: a separator BETWEEN hints, never a
+   leading rule above the first one or a trailing one under the last. */
+.steps{margin:calc(1.75em * var(--gap,1)) 0 0;padding:0;list-style:none}
+.steps li{padding:calc(.9em * var(--gap,1)) 0;border-top:1px solid var(--rule);font-size:.9375em;line-height:1.6;color:var(--ink-2)}
+.steps li:first-child{padding-top:0;border-top:0}
+.steps .step-why{color:var(--ink-2)}
+.steps .sep{color:var(--ink-3)}
+.steps .es{color:var(--ink);font-weight:600}
+/* The reveal is a new block that arrives BELOW the prompt and any hints
+   already on screen - it never displaces them. Its own weight (scale, plus
+   the hairline that opens it) is what makes it read as an event, not motion. */
+.answer{margin:calc(2em * var(--gap,1)) 0 0;padding-top:calc(1.125em * var(--gap,1));border-top:1px solid var(--rule-2)}
+.answer .es{font-size:1.9375em;line-height:1.3;letter-spacing:-.018em;margin:0;font-weight:400;color:var(--ink)}
+.answer .note{font-size:.9375em;line-height:1.6;color:var(--ink-2);margin:calc(1em * var(--gap,1)) 0 0;max-width:38ch}
+.answer .flag{font-size:.8125em;color:var(--flag);margin-top:calc(.75em * var(--gap,1));display:block}
+.answer .speak{
+  appearance:none;background:transparent;border:1.5px solid var(--edge);border-radius:3px;color:var(--ink);
+  padding:.7em 1em;min-height:2.6em;margin:calc(1em * var(--gap,1)) 0 0;font-size:.875em;cursor:pointer;font-family:var(--sans);
+  display:inline-flex;align-items:center;gap:.5em;
+}
+/* The rule cross-references are a wrapped line of links, not a stack of
+   full-width rows: on the answered screen they're the last thing anyone
+   needs and the first thing that should stop costing a third of the
+   viewport. */
+.why{
+  margin:calc(1.5em * var(--gap,1)) 0 0;padding-top:calc(.875em * var(--gap,1));border-top:1px solid var(--rule);
+  display:flex;flex-wrap:wrap;align-items:baseline;gap:0 1em;
+}
+.why .why-lbl{font-size:.8125em;color:var(--ink-3)}
+.rulelink{
+  appearance:none;border:0;background:none;text-align:left;font-family:var(--sans);
+  padding:.35em 0;color:var(--mark);font-size:.9375em;line-height:1.5;cursor:pointer;
+  text-decoration:underline;text-underline-offset:3px;text-decoration-color:var(--rule-2);
+}
+.why-all{display:none}
+
+/* A short screen is not a small screen. On a phone held sideways (or a
+   laptop with the browser chrome eating half the window) there is plenty of
+   width and almost no height, so the drill stops being one column: the
+   prompt, the answer and the rule links take the left, the hint stack takes
+   the right, and the whole thing fits without giving up a single size. The
+   reading order is unchanged for screen readers and for keyboard focus -
+   only the placement moves. */
+@media (min-width:700px) and (max-height:620px){
+  body.lock .app{max-width:58rem}
+  .stage{
+    display:grid;column-gap:2.5em;align-content:start;
+    grid-template-columns:1fr 1fr;
+    grid-template-areas:"cue cue" "eng steps" "answer steps" "why steps";
+  }
+  .stage > .filterbanner{grid-column:1 / -1}
+  .stage > .cue{grid-area:cue}
+  .stage > .eng{grid-area:eng;max-width:100%}
+  .stage > .steps{grid-area:steps;margin-top:0}
+  .stage > .answer{grid-area:answer}
+  .stage > .why{grid-area:why}
+}
+/* Short screens, sideways or not: the chrome above and below the drill is
+   the cheapest height in the app to buy back, and buying it back is how the
+   type keeps its size. */
+@media (max-height:620px){
+  .topline{padding-top:2px}
+  .tabs button{padding:10px 0 9px;min-height:40px}
+  .bar{padding:var(--s2) 0 calc(var(--s2) + env(safe-area-inset-bottom))}
+  .bar .btn, .bar.grade button{min-height:46px;padding-top:12px;padding-bottom:12px}
+}
+
+/* Shedding: the last two rungs of fitDrill()'s ladder, for a screen so
+   short that squeezing space and type has run out before the drill fits.
+   Nothing here loses a word of the answer, the prompt or the hints - only
+   the periphery goes: four wrapped rule titles become one "4 rules" link
+   to the same place, the teacher's aside folds away, the hint rows give up
+   their breathing room and the speak button its label. A dense drill on a
+   320px phone is the only thing that reaches rung two. */
+.stage.shed1 .why .rulelink:not(.why-all){display:none}
+.stage.shed1 .why-all{display:inline}
+.stage.shed1 .answer .note{display:none}
+.stage.shed2 .steps li{padding:calc(.4em * var(--gap,1)) 0;line-height:1.45}
+.stage.shed2 .eng{line-height:1.22}
+.stage.shed2 .answer .speak{padding:.45em .7em;min-height:0}
+.stage.shed2 .speak-lbl{display:none}
+
+/* ---- rules (per-track tab) - hairline rows, same discipline as the glossary ---- */
+.rules-list{margin:0}
+.rule{border-bottom:1px solid var(--rule);padding:var(--s6) 0;scroll-margin-top:5rem}
+.rules-list .rule:first-child{padding-top:var(--s3)}
+.rules-list .rule:last-child{border-bottom:none}
+.rule.highlight{background:var(--sunk);margin:0 -20px;padding:var(--s6) 20px;transition:background-color 1.6s ease 300ms}
+.rule h3{margin:0 0 var(--s3);font-size:.9375rem;font-weight:600;line-height:1.4}
+.rule p{margin:0 0 var(--s4);font-size:1rem;line-height:1.65;max-width:38ch;color:var(--ink)}
+.rule ul{margin:0 0 var(--s4);padding:0;list-style:none}
+.rule ul li{font-size:.9375rem;line-height:1.6;padding:6px 0 6px 16px;position:relative;color:var(--ink-2)}
+.rule ul li::before{content:"";position:absolute;left:0;top:.85em;width:6px;height:1px;background:var(--edge)}
+.rule ul li .es{color:var(--ink)}
+.rule .src{font-size:.8125rem;color:var(--ink-3)}
+.rule .practicebtn, .gpractice{
+  appearance:none;border:0;background:none;padding:12px 0;min-height:48px;font-family:var(--sans);
+  color:var(--mark);font-size:.875rem;cursor:pointer;display:block;text-align:left;
+}
+
+/* ---- sticky action bar(s) ---- */
+.bar{
+  position:sticky;bottom:0;background:var(--paper);
+  border-top:1px solid var(--rule-2);
+  padding:var(--s3) 0 calc(var(--s3) + env(safe-area-inset-bottom));
+  display:flex;align-items:center;gap:var(--s3);
+}
+.bar.stack{flex-direction:column;align-items:stretch;gap:var(--s3)}
+.bar.stack .row2{display:flex;align-items:center;gap:var(--s4)}
+.btn{
+  appearance:none;border:0;background:var(--ink);color:var(--paper);
+  border-radius:3px;padding:15px 20px;min-height:52px;font-size:.9375rem;font-weight:600;cursor:pointer;font-family:var(--sans);
+  transition:background-color .15s ease,border-color .15s ease,opacity .15s ease;
+}
+.btn:active{opacity:.85}
+/* The reveal-answer action is a real, secondary-weight button: bordered
+   like .speak/.grade below, never link-styled - both choices on the hint
+   bar are buttons, just not competing filled buttons (see .bar.choice). */
+.btn.secondary{
+  background:transparent;color:var(--ink);border:1.5px solid var(--edge);
+}
+.btn.ghost{
+  background:transparent;color:var(--mark);border:0;font-weight:400;padding:15px 0;min-height:52px;
+  text-decoration:underline;text-underline-offset:3px;text-decoration-color:var(--rule-2);
+}
+.btn.small{padding:12px 0;min-height:48px;font-size:.875rem}
 .btn:disabled{opacity:.45;cursor:not-allowed}
-.btn:disabled:hover{border-color:var(--border)}
-.backup-msg{margin-top:var(--sp-4);padding:var(--sp-3);border-radius:var(--radius-sm);font-size:var(--fs-small);border:1px solid var(--border)}
-.backup-msg.ok{color:var(--text);border-color:var(--accent)}
-.backup-msg.err{color:var(--danger);border-color:var(--danger);background:rgba(255,123,114,.08)}
+.bar.choice{gap:var(--s2)}
+.bar.choice .btn{flex:1}
+.bar .textlink{
+  appearance:none;border:0;background:none;padding:15px 0;min-height:48px;
+  color:var(--ink-3);font-size:.875rem;cursor:pointer;font-family:var(--sans);
+  text-decoration:underline;text-underline-offset:3px;text-decoration-color:var(--rule-2);
+}
+.bar.grade{gap:var(--s2)}
+.bar.grade button{
+  flex:1;appearance:none;background:transparent;border:1.5px solid var(--edge);color:var(--ink);
+  border-radius:3px;padding:15px 10px;min-height:52px;font-size:.9375rem;font-weight:600;cursor:pointer;font-family:var(--sans);
+}
+.bar.grade button.no{color:var(--flag)}
+
+/* ---- glossary ("All rules") ---- */
+.gcount{font-size:.8125rem;line-height:1.5;color:var(--ink-3)}
+.glosslist{margin:0}
+.glossrow{border-top:1px solid var(--rule)}
+.glosslist .glossrow:first-child{border-top:0}
+.glosshead{
+  appearance:none;border:0;background:none;width:100%;display:flex;gap:var(--s3);font-family:var(--sans);
+  align-items:flex-start;padding:16px 0;min-height:48px;cursor:pointer;text-align:left;color:inherit;
+}
+.glosshead .num{width:1.75rem;flex:none;text-align:right;font-size:.9375rem;color:var(--ink-3);padding-top:2px}
+/* No truncation here either: the full rule title wraps onto as many lines
+   as it needs. */
+.glosshead .t{flex:1;min-width:0;font-size:.9375rem;line-height:1.5;color:var(--ink)}
+.glosshead[aria-expanded="true"] .t{font-weight:600}
+.glosshead .n{flex:none;font-size:.8125rem;color:var(--ink-3);padding-top:3px;white-space:nowrap}
+.glosspanel{padding:0 0 var(--s6) calc(1.75rem + var(--s3))}
+.glosspanel p{margin:0 0 var(--s4);font-size:1rem;line-height:1.65;max-width:38ch;color:var(--ink)}
+.glosspanel ul{margin:0 0 var(--s4);padding:0;list-style:none}
+.glosspanel ul li{font-size:.9375rem;line-height:1.6;padding:6px 0 6px 16px;position:relative;color:var(--ink-2)}
+.glosspanel ul li::before{content:"";position:absolute;left:0;top:.85em;width:6px;height:1px;background:var(--edge)}
+.glosspanel ul li .es{color:var(--ink)}
+.glosspanel .variant{border-left:1.5px solid var(--rule-2);padding:4px 0 4px var(--s3);margin:0 0 var(--s4)}
+.glosspanel .variant .vlbl{font-size:.8125rem;color:var(--ink-3);margin-bottom:6px}
+.glosspanel .variant p{font-size:.9375rem;line-height:1.6;color:var(--ink-2);margin:0;max-width:36ch}
+.glosspanel .where{font-size:.8125rem;line-height:1.6;color:var(--ink-3);margin:0 0 var(--s3);max-width:38ch}
+.practicerow{display:flex;flex-wrap:wrap;gap:var(--s1) var(--s4);padding-top:var(--s1)}
+.gpractice{padding:12px 0;min-height:48px}
+
+/* ---- summary ---- */
+.summary-line{font-size:1.375rem;line-height:1.35;font-weight:600;letter-spacing:-.012em;margin:var(--s4) 0 var(--s5)}
+.summary-line .miss{color:var(--flag)}
+.summary .donenote{font-size:.875rem;line-height:1.5;color:var(--ink-3);margin:0 0 var(--s4)}
+.trackrow{display:flex;justify-content:space-between;font-size:.9375rem;padding:14px 0;border-top:1px solid var(--rule)}
+.tracks{border-bottom:1px solid var(--rule)}
+.trackrow .l{color:var(--ink-2)}
+
+/* ---- backup ---- */
+.backup-list{margin:0}
+.backup-row{border-top:1px solid var(--rule);padding:var(--s5) 0}
+.backup-list .backup-row:first-child{border-top:0;padding-top:var(--s3)}
+.backup-row .lbl{font-size:.8125rem;color:var(--ink-3);margin-bottom:8px}
+.backup-row p{margin:0 0 var(--s4);font-size:.9375rem;line-height:1.55;color:var(--ink-2);max-width:38ch}
+.filerow{
+  appearance:none;background:transparent;border:1.5px solid var(--edge);border-radius:3px;color:var(--ink);
+  padding:12px 16px;min-height:48px;font-size:.875rem;cursor:pointer;font-family:var(--sans);
+}
+.radiorow{
+  display:flex;align-items:flex-start;gap:var(--s2);padding:12px 0;min-height:48px;
+  cursor:pointer;font-size:.9375rem;line-height:1.5;color:var(--ink);
+}
+.radiorow input{margin-top:.3rem;flex:none;width:1.1rem;height:1.1rem;accent-color:var(--ink)}
+.radiorow b{font-weight:600}
+.radiorow.confirm{color:var(--flag)}
+.backup-msg{margin-top:var(--s4);padding-left:var(--s3);font-size:.9375rem;line-height:1.55;border-left:1.5px solid var(--edge);color:var(--ink)}
+.backup-msg.err{border-left-color:var(--flag);color:var(--flag)}
 </style>
 </head>
 <body>
@@ -330,6 +411,10 @@ main.view-drill{
 (function(){
 "use strict";
 var DATA = JSON.parse(document.getElementById('pack-data').textContent);
+var SPK_ICON = '<svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true" style="vertical-align:-2px">' +
+  '<path d="M8.5 2.2 4.8 5.2H2.2v5.6h2.6l3.7 3V2.2Z" fill="currentColor"/>' +
+  '<path d="M11.2 5.4a3.6 3.6 0 0 1 0 5.2M13.2 3.4a6.4 6.4 0 0 1 0 9.2" ' +
+  'stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>';
 
 var pack = null, view = "home", queue = [], idx = 0, revealedSteps = 0, answerShown = false,
     grades = {}, usedHint = false, highlightRule = null, focusRuleId = null,
@@ -343,6 +428,34 @@ function prefersReducedMotion(){
 }
 
 function esc(s){ return String(s==null?"":s).replace(/[&<>"']/g, function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];}); }
+
+// Scaffolding steps are written "reasoning: spanish result" (1,384 of them).
+// Honour that structure instead of flattening it: the reasoning renders in
+// grey, the result in ink and lang="es". A step with no colon (or where the
+// split would be meaningless) degrades safely and renders whole, in grey.
+function splitStep(s){
+  var i = s.lastIndexOf(': ');
+  if(i === -1) return [s, null];
+  return [s.slice(0, i), s.slice(i + 2)];
+}
+function stepHtml(s){
+  var parts = splitStep(s), why = parts[0], es = parts[1];
+  // "step-why", not "why" - the unscoped ".why" is a different block
+  // entirely (the rule-links group after the answer) and reusing its name
+  // here let that block's own border/margin bleed into every hint through
+  // the cascade: an orphan hairline sitting inside the first hint's text.
+  return '<li><span class="step-why">'+esc(why)+'</span>' +
+    (es ? '<span class="sep">: </span><span class="es" lang="es">'+esc(es)+'</span>' : '') +
+    '</li>';
+}
+// Examples are either a bare Spanish phrase or "spanish - english"; when a
+// translation is present it's set in grey behind an em dash, the Spanish
+// stays lang="es" and ink either way.
+function exampleHtml(x){
+  var i = x.indexOf(' - ');
+  if(i === -1) return '<li><span class="es" lang="es">'+esc(x)+'</span></li>';
+  return '<li><span class="es" lang="es">'+esc(x.slice(0,i))+'</span> &mdash; '+esc(x.slice(i+3))+'</li>';
+}
 
 function storeKey(){ return "lt-review:" + (pack ? pack.id : ""); }
 function persist(){ try{ localStorage.setItem(storeKey(), JSON.stringify(grades)); }catch(e){} }
@@ -370,14 +483,25 @@ function on(id, fn, type){ var el = document.getElementById(id); if(el) el.addEv
 function onAll(sel, fn, type){ var els = document.querySelectorAll(sel); for(var i=0;i<els.length;i++){ (function(el){ el.addEventListener(type||'click', function(ev){ fn(ev, el); }); })(els[i]); } }
 
 /* ---------- pack progress (for home list) ---------- */
+// Bug fix: this used to return null (= "no progress at all") unless at
+// least one drill was graded "got" - so a track the learner had only ever
+// answered "Not yet" on looked exactly like an untouched one, both for the
+// home-row badge and for recap eligibility (see recapCandidatePacks below).
+// That's backwards: any grade at all, "got" or "stuck", is progress: the
+// gate is now "has anything been graded", while the badge itself keeps
+// showing correct-count/total (success stays unmarked by design).
 function packProgress(p){
   var raw; try{ raw = localStorage.getItem("lt-review:" + p.id); }catch(e){ raw = null; }
   if(!raw) return null;
   var g; try{ g = JSON.parse(raw); }catch(e){ return null; }
-  var done = 0, total = p.drills.length;
-  for(var i=0;i<p.drills.length;i++){ if(g[p.drills[i].id]==="got") done++; }
-  if(done===0) return null;
-  return {done:done, total:total};
+  var got = 0, graded = 0, total = p.drills.length;
+  for(var i=0;i<p.drills.length;i++){
+    var st = g[p.drills[i].id];
+    if(st === "got"){ got++; graded++; }
+    else if(st === "stuck"){ graded++; }
+  }
+  if(graded===0) return null;
+  return {done:got, total:total};
 }
 
 /* ---------- "mark as done" tracking (separate from per-drill grades) ---------- */
@@ -591,8 +715,10 @@ function shuffled(arr){
   return a;
 }
 
-// Tracks worth recapping: anything with at least one graded drill, whether
-// or not it's been marked done.
+// Tracks worth recapping: anything the learner has covered - marked done
+// via the home-screen circle (which grades nothing on its own), or with at
+// least one graded drill (via the packProgress fix above, "graded" means
+// either "got" or "stuck", not just "got").
 function recapCandidatePacks(){
   var doneMap = getDoneMap();
   return orderedPacks().filter(function(p){ return doneMap[p.id] || packProgress(p); });
@@ -600,19 +726,42 @@ function recapCandidatePacks(){
 
 function hasRecapMaterial(){ return recapCandidatePacks().length > 0; }
 
+function trackGrades(p){
+  try{ return JSON.parse(localStorage.getItem("lt-review:"+p.id) || "{}"); }catch(e){ return {}; }
+}
+
+// Bug fix: this used to pool ONLY drills that already carried a "got" or
+// "stuck" grade. A track marked done via the home-screen circle grades
+// nothing, so a learner who works through tracks and ticks them off (rather
+// than grading every drill) ended up with a covered-tracks list full of
+// tracks and an almost-empty grade pool - recap then drew from that
+// handful forever, however high RECAP_SIZE was set.
+//
+// Fixed pool = every drill in every covered track, ranked:
+//   1. marked "stuck"   - most worth another pass
+//   2. ungraded         - covered but never actually tested; as worth
+//                         recapping as a stuck one, arguably more so than
+//                         one already proven "got"
+//   3. marked "got"     - already demonstrated, lowest priority filler
+// Each tier is shuffled before slicing so which drills fill RECAP_SIZE (and
+// their order) differs run to run, and the final pick is reshuffled so the
+// tiers don't run in blocks.
 function startRecap(){
   var packs = recapCandidatePacks();
-  var stuckPool = [], gotPool = [];
+  var stuckPool = [], freshPool = [], gotPool = [];
   packs.forEach(function(p){
-    var g; try{ g = JSON.parse(localStorage.getItem("lt-review:"+p.id) || "{}"); }catch(e){ g = {}; }
+    var g = trackGrades(p);
     p.drills.forEach(function(d){
-      if(g[d.id]==="stuck") stuckPool.push(d);
-      else if(g[d.id]==="got") gotPool.push(d);
+      var st = g[d.id];
+      if(st==="stuck") stuckPool.push(d);
+      else if(st==="got") gotPool.push(d);
+      else freshPool.push(d);
     });
   });
-  // Weight toward the ones marked "stuck" first, fill the rest at random
-  // from everything else already covered, then mix the order.
   var picked = shuffled(stuckPool).slice(0, RECAP_SIZE);
+  if(picked.length < RECAP_SIZE){
+    picked = picked.concat(shuffled(freshPool).slice(0, RECAP_SIZE - picked.length));
+  }
   if(picked.length < RECAP_SIZE){
     picked = picked.concat(shuffled(gotPool).slice(0, RECAP_SIZE - picked.length));
   }
@@ -688,6 +837,12 @@ var GLOSSARY = (function(){
   });
   list.forEach(function(e, i){ e.idx = i; });
   return list;
+})();
+
+var N_RULE_CARDS = (function(){
+  var n = 0;
+  DATA.packs.forEach(function(p){ n += (p.rules||[]).length; });
+  return n;
 })();
 
 function glossaryMatches(q){
@@ -789,75 +944,102 @@ function nextStep(){
 
 /* ---------- rendering ---------- */
 function bar(html){ return '<div class="bar" id="bar">' + html + '</div>'; }
+function barStack(html){ return '<div class="bar stack" id="bar">' + html + '</div>'; }
+function barGrade(html){ return '<div class="bar grade" id="bar">' + html + '</div>'; }
+function barChoice(html){ return '<div class="bar choice" id="bar">' + html + '</div>'; }
 
-function topBarHtml(){
-  if(view==="glossary"){
-    return '<div id="top"><h1>All rules</h1>' +
-      '<button class="iconbtn" id="topHomeBtn" title="Back to the track list">All tracks</button></div>';
-  }
-  if(view==="backup"){
-    return '<div id="top"><h1>Backup</h1>' +
-      '<button class="iconbtn" id="topHomeBtn" title="Back to the track list">All tracks</button></div>';
-  }
-  var title = pack ? esc(pack.label) : "Complete Spanish";
-  // "Back" undoes one step within the current track (a reveal, a piece, a drill).
-  // "All tracks" always exits the track entirely and returns to the track list.
-  var back = (pack && canGoBack()) ? '<button class="iconbtn" id="backBtn" title="Undo the last reveal">&#8630; Undo</button>' : '';
-  var home = pack ? '<button class="iconbtn" id="topHomeBtn" title="Leave this track and return to the list">All tracks</button>'
-                  : '<button class="iconbtn" id="glossaryBtn" title="Browse every rule in the course">All rules</button>';
-  return '<div id="top">' + back + '<h1>'+title+'</h1>' + home + '</div>';
+// The running head is home's only persistent chrome: the app name, the
+// course-wide stat, and a 3px measure line with an ink-filled segment.
+function homeHeadHtml(){
+  var totalPacks = DATA.packs.length;
+  var doneCount = Object.keys(getDoneMap()).length;
+  var pct = Math.round(doneCount/totalPacks*100);
+  var stat = doneCount+' of '+totalPacks+' tracks &middot; '+pct+'%';
+  return '<header><div class="head"><div class="name">Complete Spanish</div>'+
+    '<div class="stat">'+stat+'</div></div>'+
+    '<div class="measure" role="img" aria-label="'+esc(doneCount+' of '+totalPacks+' tracks, '+pct+' percent')+'">'+
+    '<i style="width:'+pct+'%"></i></div></header>';
 }
 
-function railHtml(){
-  if(!pack || view==="home") return '';
-  var pct = queue.length ? Math.round((idx/queue.length)*100) : 0;
-  if(view==="summary") pct = 100;
-  // At the very start there's nothing to show yet - an empty full-width bar
-  // just reads as a stray line, not as "0% of something", so skip it.
-  if(pct === 0) return '';
-  return '<div class="rail"><i style="width:'+pct+'%"></i></div>';
-}
-
-function tabsHtml(){
-  if(!pack) return '';
+// The pack-scoped header: a single back arrow (always exits to the track
+// list - the drill loop's own "take that back" link handles undoing a
+// reveal, see undoLineHtml()) plus the Drills/Rules tab strip.
+function packHeadHtml(){
   var drillsActive = (view==="drill" || view==="summary");
-  return '<div id="tabs">' +
-    '<button class="tab '+(drillsActive?"active":"")+'" id="tabDrills">Drills</button>' +
-    '<button class="tab '+(view==="rules"?"active":"")+'" id="tabRules">Rules</button>' +
-    '</div>';
+  return '<header class="topline">'+
+    '<button class="back" id="topHomeBtn" aria-label="Back to the track list">&larr;</button>'+
+    '<nav class="tabs">'+
+    '<button id="tabDrills" aria-selected="'+drillsActive+'">Drills ('+pack.drills.length+')</button>'+
+    '<button id="tabRules" aria-selected="'+(view==="rules")+'">Rules ('+pack.rules.length+')</button>'+
+    '</nav></header>';
+}
+
+// The glossary/backup header: a text "back" link, a title, a one-line count.
+function pageHeadHtml(title, countHtml){
+  return '<header class="gh"><button class="back" id="topHomeBtn">&larr; Tracks</button>'+
+    '<h1>'+title+'</h1>'+
+    (countHtml ? '<div class="gcount">'+countHtml+'</div>' : '')+
+    '</header>';
+}
+
+function headHtml(){
+  if(view==="home") return homeHeadHtml();
+  if(view==="glossary") return pageHeadHtml('All rules', GLOSSARY.length+' concepts, taught across '+N_RULE_CARDS+' rule cards in '+DATA.packs.length+' tracks');
+  if(view==="backup") return pageHeadHtml('Back up progress', '');
+  return packHeadHtml();
 }
 
 function packCardHtml(p){
   var prog = packProgress(p);
   var done = isDone(p.id);
-  var progHtml = prog ? '<span class="prog '+(prog.done>=prog.total?"done":"")+'">'+prog.done+'/'+prog.total+'</span>' :
-    (p.drills.length ? '<span class="prog">'+p.drills.length+' drills</span>' : '<span class="prog">read first</span>');
-  var check = done ? '&#10003;' : '';
+  var progHtml;
+  // Success is unmarked (the filled tick already said it); struggle is what
+  // earns ink. A track with no drills of its own (track 1) says so instead
+  // of showing a meaningless count.
+  if(!p.drills.length){
+    progHtml = '<span class="prog">rules only</span>';
+  } else if(done){
+    progHtml = '';
+  } else if(prog){
+    progHtml = '<span class="prog">'+prog.done+'/'+prog.total+'</span>';
+  } else {
+    // Bare count: it sits under the done circle, where "how much is in here"
+    // needs no unit spelled out, and the description gets the whole line.
+    progHtml = '<span class="prog">'+p.drills.length+'</span>';
+  }
   var rowLabel = 'Track '+p.tracks[0]+(p.blurb ? ' — '+p.blurb : '');
   return '<div class="packcard'+(done?' done':'')+'" id="pack-'+esc(p.id)+'" data-pid="'+esc(p.id)+'">' +
-    '<button class="donebtn'+(done?' on':'')+'" data-pid="'+esc(p.id)+'" title="'+(done?"Mark not done":"Mark track as done")+'" aria-pressed="'+done+'"><span class="donebtn-circle">'+check+'</span></button>' +
     '<button class="rowbtn" data-pid="'+esc(p.id)+'" aria-label="'+esc(rowLabel)+'">' +
-    '<div class="num">'+p.tracks[0]+'</div>' +
-    '<div class="meta"><div class="sub">'+esc(p.blurb||'')+'</div></div>' +
-    progHtml +
+    '<span class="num">'+p.tracks[0]+'</span>' +
+    '<span class="meta"><span class="sub">'+esc(p.blurb||'')+'</span></span>' +
     '</button>' +
+    '<span class="rowend">' +
+    '<button class="donebtn'+(done?' on':'')+'" data-pid="'+esc(p.id)+'" aria-label="'+(done?"Mark track "+p.tracks[0]+" not done":"Mark track "+p.tracks[0]+" done")+'" aria-pressed="'+done+'"><span class="donebtn-circle"></span></button>' +
+    progHtml +
+    '</span>' +
     '</div>';
 }
 
-function continueCardHtml(p){
-  var rowLabel = 'Continue, Track '+p.tracks[0]+(p.blurb ? ' — '+p.blurb : '');
-  return '<div class="continue-card" id="continueCard">' +
-    '<div class="meta"><div class="lbl">Continue &middot; Track '+p.tracks[0]+'</div><div class="sub">'+esc(p.blurb||'')+'</div></div>' +
-    '<button class="btn primary small" id="continueCardBtn" data-pid="'+esc(p.id)+'" aria-label="'+esc(rowLabel)+'">Start &rarr;</button>' +
-    '</div>';
+function trackRangeText(sec){ return sec.end===sec.start ? ('Track '+sec.start) : ('Tracks '+sec.start+'&ndash;'+sec.end); }
+
+// "Where you left off" (or, once nothing is left, the all-caught-up state).
+// Pulled out on its own so the done-toggle handler in wire() can refresh
+// just this block without a full re-render.
+function homeHeroHtml(){
+  var rec = nextRecommendedTrack();
+  if(rec){
+    return '<div class="home-hero" id="homeHero"><div class="lbl">Where you left off</div>' +
+      '<div class="t">Track '+rec.tracks[0]+'</div><p class="b">'+esc(rec.blurb||'')+'</p>' +
+      '<button class="btn" id="continueCardBtn" data-pid="'+esc(rec.id)+'" aria-label="Start track '+rec.tracks[0]+'">Start</button>' +
+      '</div>';
+  }
+  return '<div class="home-hero" id="homeHero"><div class="lbl">All caught up</div>' +
+    '<div class="t">All '+DATA.packs.length+' tracks marked done</div>' +
+    '<p class="b">Revisit any track below for another pass.</p></div>';
 }
 
 function renderHome(){
-  var totalPacks = DATA.packs.length;
-  var doneCount = Object.keys(getDoneMap()).length;
-  var donePercent = Math.round(doneCount/totalPacks*100);
-  var html = '<div class="home-hero"><p>'+doneCount+' of '+totalPacks+' tracks done &middot; '+donePercent+'%</p></div>';
-  html += '<div class="searchrow"><input id="homeSearch" type="search" aria-label="Search tracks or grammar" placeholder="Search tracks or grammar&hellip;" value="'+esc(homeFilter)+'"></div>';
+  var html = '<div class="searchrow"><input id="homeSearch" type="search" aria-label="Search tracks or grammar" placeholder="Search tracks and rules" value="'+esc(homeFilter)+'"></div>';
 
   var q = homeFilter.trim().toLowerCase();
   if(q){
@@ -889,26 +1071,21 @@ function renderHome(){
     return html;
   }
 
-  var rec = nextRecommendedTrack();
-  if(rec){
-    html += continueCardHtml(rec);
-  } else {
-    html += '<div class="continue-card done-all"><div class="meta"><div class="lbl">All '+totalPacks+' tracks marked done</div><div class="sub">Revisit any track below for another pass.</div></div></div>';
-  }
+  html += homeHeroHtml();
 
   if(hasRecapMaterial()){
     var n = recapCandidatePacks().length;
-    html += '<div class="continue-card" id="recapCard"><div class="meta"><div class="lbl">Recap practice</div><div class="sub">A mixed, on-demand check across the '+n+' track'+(n===1?'':'s')+' you\'ve covered &mdash; weighted toward what you got stuck on.</div></div>' +
-      '<button class="btn ghost small" id="recapBtn">Start &rarr;</button></div>';
+    html += '<div class="linkrow"><button class="link" id="recapBtn">Recap practice' +
+      '<span class="sub">A mixed check across the '+n+' track'+(n===1?'':'s')+' you\'ve covered, weighted toward what you got stuck on.</span></button></div>';
   }
+
+  html += '<div class="linkrow"><button class="link" id="glossaryBtn">All rules' +
+    '<span class="sub">Every rule in the course, on its own and searchable.</span></button></div>';
 
   DATA.sections.forEach(function(sec, i){
     var secPacks = orderedPacks().filter(function(p){ return p.sectionIndex===i; });
     if(!secPacks.length) return;
-    var doneMap = getDoneMap();
-    var secDone = secPacks.filter(function(p){ return doneMap[p.id]; }).length;
-    var secTotal = secPacks.length;
-    html += '<div class="section-head"><h3>'+esc(sec.title)+' <span style="font-size:var(--fs-caption);color:var(--muted);font-weight:400">'+secDone+'/'+secTotal+'</span></h3><p>'+esc(sec.focus)+'</p></div>';
+    html += '<div class="section-head"><div class="r">'+trackRangeText(sec)+'</div><h3>'+esc(sec.title)+'</h3><p>'+esc(sec.focus)+'</p></div>';
     html += '<div class="packlist">' + secPacks.map(packCardHtml).join('') + '</div>';
   });
 
@@ -917,26 +1094,26 @@ function renderHome(){
 }
 
 function renderBackup(){
-  var html = '<div class="home-hero"><p>Your progress lives only in this browser. Download a backup to keep a copy, or bring progress over from another device or browser.</p></div>';
+  var html = '<p style="color:var(--ink-2);font-size:.9375rem;line-height:1.5;max-width:38ch;margin:var(--s3) 0 0">Your progress lives only in this browser. Download a backup to keep a copy, or bring progress over from another device or browser.</p>';
   html += '<div class="backup-list">';
 
-  html += '<div class="backup-row"><h3>Export</h3>' +
+  html += '<div class="backup-row"><div class="lbl">Export</div>' +
     '<p>Download everything you\'ve graded and marked done as one file.</p>' +
-    '<button class="btn primary small" id="exportBtn">Download backup &rarr;</button>' +
+    '<button class="btn" id="exportBtn">Download a backup file</button>' +
     '</div>';
 
   var replaceSelected = backupMode === "replace";
   var importDisabled = replaceSelected && !backupConfirmReplace;
-  html += '<div class="backup-row"><h3>Import</h3>' +
+  html += '<div class="backup-row"><div class="lbl">Import</div>' +
     '<p>Load a backup file back in. Choose how it combines with what\'s already here:</p>' +
     '<label class="radiorow"><input type="radio" name="backupMode" value="merge" id="modeMerge" '+(backupMode==="merge"?"checked":"")+'>' +
-    '<span><b>Merge</b> &mdash; keep everything on both sides; where a drill is graded on both, the more advanced grade wins. Never loses progress.</span></label>' +
+    '<span><b>Merge</b> &mdash; keep everything on both sides; where a drill is graded on both, got always beats stuck. Never loses progress.</span></label>' +
     '<label class="radiorow"><input type="radio" name="backupMode" value="replace" id="modeReplace" '+(replaceSelected?"checked":"")+'>' +
     '<span><b>Replace</b> &mdash; wipe current progress and use only what\'s in the file.</span></label>' +
     (replaceSelected ? '<label class="radiorow confirm"><input type="checkbox" id="backupConfirm" '+(backupConfirmReplace?"checked":"")+'>' +
       '<span>I understand this replaces all current progress and can\'t be undone.</span></label>' : '') +
     '<input type="file" id="importFile" accept="application/json,.json" style="display:none">' +
-    '<button class="btn small" id="importBtn"'+(importDisabled?' disabled title="Check the confirmation box first"':'')+'>Choose file&hellip;</button>' +
+    '<div style="margin-top:var(--s2)"><button class="filerow" id="importBtn"'+(importDisabled?' disabled title="Check the confirmation box first"':'')+'>Choose file&hellip;</button></div>' +
     '</div>';
 
   if(backupMsg){
@@ -955,21 +1132,20 @@ function trackListText(tracks){
 function glossaryEntryHtml(e, i, isOpen){
   var rowId = 'gl-' + i, panelId = 'glp-' + i;
   var revisits = e.copies.filter(function(c){ return c.track !== e.origin; }).map(function(c){ return c.track; });
-  var countHtml = revisits.length ? '<span class="n">' + (revisits.length+1) + ' tracks</span>' : '';
+  var countHtml = '<span class="n">' + (revisits.length ? (revisits.length+1) + ' tracks' : 'once') + '</span>';
   var head = '<button class="glosshead" id="'+rowId+'" data-fam="'+esc(e.family)+'" aria-expanded="'+(isOpen?'true':'false')+'" aria-controls="'+panelId+'">' +
     '<span class="num">'+e.origin+'</span>' +
     '<span class="t">'+esc(e.title)+'</span>' + countHtml +
-    '<span class="chev" aria-hidden="true">'+(isOpen?'&#9662;':'&#9656;')+'</span>' +
     '</button>';
   if(!isOpen) return '<div class="glossrow">' + head + '</div>';
 
   var r = e.main.rule;
   var body = '<p>'+esc(r.explanation)+'</p>';
   if(r.examples && r.examples.length){
-    body += '<ul>' + r.examples.map(function(x){ return '<li>'+esc(x)+'</li>'; }).join('') + '</ul>';
+    body += '<ul>' + r.examples.map(exampleHtml).join('') + '</ul>';
   }
   body += e.variants.map(function(v){
-    return '<div class="variant"><div class="vlbl">Track '+v.track+' puts it this way</div><p>'+esc(v.text)+'</p></div>';
+    return '<div class="variant"><div class="vlbl">Track '+v.track+' words it differently</div><p>'+esc(v.text)+'</p></div>';
   }).join('');
   body += '<div class="where">Introduced in track '+e.origin +
     (revisits.length ? ' &middot; comes back in ' + trackListText(revisits) : '') + '.</div>';
@@ -977,14 +1153,10 @@ function glossaryEntryHtml(e, i, isOpen){
   var targets = e.copies.filter(function(c){ return c.drills > 0; });
   if(!targets.length){
     body += '<div class="where">No drills practice this one on its own.</div>';
-  } else if(targets.length===1){
-    body += '<div class="practicerow"><button class="gpractice" data-pid="'+esc(targets[0].packId)+'" data-ruleid="'+esc(targets[0].rule.id)+'">' +
-      'Practice this rule &middot; track '+targets[0].track+' &rarr;</button></div>';
   } else {
-    body += '<div class="where">Practice it with the drills from:</div>' +
-      '<div class="practicerow">' + targets.map(function(c){
-        return '<button class="gpractice" data-pid="'+esc(c.packId)+'" data-ruleid="'+esc(c.rule.id)+'">' +
-          'Track '+c.track+' &middot; '+c.drills+' &rarr;</button>';
+    body += '<div class="practicerow"><span class="where" style="margin:0;padding:10px 0">Practice it in&nbsp;</span>' +
+      targets.map(function(c){
+        return '<button class="gpractice" data-pid="'+esc(c.packId)+'" data-ruleid="'+esc(c.rule.id)+'">track '+c.track+'</button>';
       }).join('') + '</div>';
   }
   return '<div class="glossrow">' + head + '<div class="glosspanel" id="'+panelId+'">' + body + '</div></div>';
@@ -992,15 +1164,14 @@ function glossaryEntryHtml(e, i, isOpen){
 
 function renderGlossary(){
   var q = glossaryFilter.trim();
-  var html = '<div class="home-hero"><p>' + GLOSSARY.length + ' rules across the whole course. A rule the course comes back to is listed once here, under the track that first taught it.</p></div>';
-  html += '<div class="searchrow"><input id="glossarySearch" type="search" aria-label="Search all rules" placeholder="Search rules&hellip;" value="'+esc(glossaryFilter)+'"></div>';
+  var html = '<div class="searchrow"><input id="glossarySearch" type="search" aria-label="Search all rules" placeholder="Search every rule" value="'+esc(glossaryFilter)+'"></div>';
 
   if(q){
     var found = glossaryMatches(q);
     if(!found.length) return html + '<div class="empty">No rules match that search.</div>';
     // One hit is almost always the one you were looking for, so open it.
     var only = (found.length===1) ? found[0].family : null;
-    html += '<div class="section-head"><h3>'+found.length+' rule'+(found.length===1?'':'s')+' match</h3></div>';
+    html += '<div class="section-head" style="margin-top:0;border-top:0;padding-top:var(--s2)"><h3>'+found.length+' rule'+(found.length===1?'':'s')+' match</h3></div>';
     html += '<div class="glosslist">' + found.map(function(e){
       return glossaryEntryHtml(e, e.idx, openFamily===e.family || only===e.family);
     }).join('') + '</div>';
@@ -1010,8 +1181,8 @@ function renderGlossary(){
   DATA.sections.forEach(function(sec, si){
     var entries = GLOSSARY.filter(function(e){ return e.sectionIndex===si; });
     if(!entries.length) return;
-    html += '<div class="section-head"><h3>'+esc(sec.title)+' <span style="font-size:var(--fs-caption);color:var(--muted);font-weight:400">'+entries.length+'</span></h3>' +
-      '<p>' + (sec.end!==sec.start ? 'Tracks '+sec.start+'&ndash;'+sec.end : 'Track '+sec.start) + '</p></div>';
+    html += '<div class="section-head"'+(si===0?' style="margin-top:0;border-top:0;padding-top:var(--s2)"':'')+'>' +
+      '<div class="r">'+trackRangeText(sec)+'</div><h3>'+esc(sec.title)+'</h3></div>';
     html += '<div class="glosslist">' + entries.map(function(e){
       return glossaryEntryHtml(e, e.idx, openFamily===e.family);
     }).join('') + '</div>';
@@ -1019,55 +1190,178 @@ function renderGlossary(){
   return html;
 }
 
+// A trailing parenthetical ("...? (informal)") is an instruction about how
+// to say it, not part of the sentence you have to say - broken onto its own
+// line pre-reveal (CSS: .reg is display:block there) so the two never read
+// as one sentence, and folded back inline once revealed (.eng.answered .reg).
+// "answered" only dims the colour a shade (see .eng.answered in the CSS) -
+// it never changes size or position, so revealing the answer can't move the
+// prompt the learner was already reading.
+function promptMarkup(text, answered){
+  var m = /^([\s\S]*)\s\(([^()]+)\)$/.exec(text);
+  var body = m ? m[1] : text;
+  var qualifier = m ? m[2] : null;
+  var regHtml = qualifier ? ' <span class="reg">('+esc(qualifier)+')</span>' : '';
+  return '<div class="eng'+(answered?' answered':'')+'">'+esc(body)+regHtml+'</div>';
+}
+
+// "Take that back" rides on the cue line rather than owning a row of its
+// own: it is periphery, the cue is periphery, and on a drill screen that
+// must fit one viewport a whole row spent on an undo link is a row the
+// hints do not get.
+function undoLineHtml(){
+  if(!canGoBack()) return '';
+  return '<button class="undo" id="undoBtn">Take that back</button>';
+}
+
+// The drill stage is the box fitDrill() measures: one viewport minus the
+// running head and the action bar. Everything a drill renders lives in it.
+function stage(inner){ return '<div class="stage" id="stage">' + inner + '</div>'; }
+
+// Zero scroll inside a drill, without clipping or truncating anything.
+// Squeeze whitespace first and only then type, because a screen with tight
+// spacing still reads as the same screen while shrunken text does not - and
+// stop at floors that keep the hint rows legible. The action bar lives
+// outside .stage, so the two buttons that get pressed the most never shrink
+// at all. A drill that still overflowed at the floor would be a content
+// bug (one far longer than anything in the dataset), not a layout one.
+// One ordered ladder of concessions, walked from the top until the drill
+// fits: whitespace, then type, then - only on a screen short enough that
+// neither was enough - the periphery (see .stage.shed1/.shed2 in the CSS).
+// The order is the order a designer would give things up in: a screen with
+// tight spacing still reads as the same screen, shrunken type reads as a
+// worse one, and losing a rule title to a link that goes to the same place
+// costs least of all. It stops at the first rung that fits, so the common
+// drill on a normal phone never leaves rung one.
+var FIT_LADDER = [
+  {gap:1},    {gap:.88}, {gap:.76}, {gap:.64}, {gap:.52}, {gap:.42},
+  {gap:.42, fit:.94}, {gap:.42, fit:.88}, {gap:.42, fit:.82},
+  {gap:.42, fit:.82, shed:1},
+  {gap:.42, fit:.76, shed:1},
+  {gap:.42, fit:.76, shed:2},
+  {gap:.42, fit:.70, shed:2},
+  {gap:.36, fit:.64, shed:2}
+];
+function clearFit(){
+  var root = document.documentElement;
+  root.style.removeProperty('--gap');
+  root.style.removeProperty('--fit');
+}
+function applyRung(st, rung){
+  var root = document.documentElement;
+  root.style.setProperty('--gap', rung.gap);
+  root.style.setProperty('--fit', rung.fit || 1);
+  st.classList.toggle('shed1', rung.shed >= 1);
+  st.classList.toggle('shed2', rung.shed >= 2);
+}
+// Binary search from where we were, not a walk down the rungs. Every rung
+// is smaller than the one above it, so "does it fit" is monotonic along the
+// ladder. Each test costs a forced reflow and this runs on every hint and
+// every reveal, so the cost is worth cutting: walking all thirteen rungs
+// put the worst tap at ~170ms on a six-times-throttled CPU, which is a
+// thumb noticing. Probing last time's rung first collapses the common
+// cases - a drill that fits at full size, or one more hint on a drill that
+// was already squeezed - to a single test, and bounds the search to one
+// side of it otherwise.
+var lastRung = 0;
+function fitDrill(){
+  var st = document.getElementById('stage');
+  if(!st){ clearFit(); return; }
+  var top = FIT_LADDER.length - 1;
+  function fits(){ return st.scrollHeight <= st.clientHeight + 1; }
+  if(lastRung > top) lastRung = top;
+  applyRung(st, FIT_LADDER[lastRung]);
+  var lo, hi, best, applied = lastRung;
+  if(fits()){
+    if(lastRung === 0) return;          // already as generous as it goes
+    lo = 0; hi = lastRung - 1; best = lastRung;
+  } else {
+    lo = lastRung + 1; hi = top; best = top;
+  }
+  while(lo <= hi){
+    var mid = (lo + hi) >> 1;
+    applyRung(st, FIT_LADDER[mid]); applied = mid;
+    if(fits()){ best = mid; hi = mid - 1; }
+    else { lo = mid + 1; }
+  }
+  if(applied !== best) applyRung(st, FIT_LADDER[best]);
+  lastRung = best;
+}
+
 function renderDrill(){
   var d = queue[idx];
-  if(!d){ return '<div class="empty">Nothing to practice here.</div>'; }
+  if(!d){ return stage('<div class="empty">Nothing to practice here.</div>'); }
+
+  // Extensions are sentences we wrote from the track's rules, not lines the
+  // teacher said - mark that provenance quietly in the cue line. Track
+  // drills (the recording itself) are the default and stay unmarked. Kept
+  // as both .flag (the design's "statement about reliability" ink) and the
+  // long-standing .src-tag hook.
+  var srcTagHtml = d.source === 'extension' ? ' &middot; <span class="flag src-tag">not from the recording</span>' : '';
+  var cueHtml = '<div class="cue"><span>Track '+d.track+' &middot; drill '+(idx+1)+' of '+queue.length+srcTagHtml+'</span>'+undoLineHtml()+'</div>';
+
+  var bannerHtml = ruleFilterId ? ('<div class="filterbanner">Only drills for: <b>'+esc(ruleFilterLabel)+'</b> ' +
+    '<button class="link-inline" id="clearRuleFilterBtn">Show all</button></div>') : '';
+
+  // The hint stack is identical whichever state we're in - revealing the
+  // answer never touches it, so it's built once and reused (see item 5:
+  // nothing already on screen may move when the answer arrives).
   var stepsHtml = "";
   if(revealedSteps>0 && d.steps){
-    stepsHtml = '<ul class="steps">' + d.steps.slice(0,revealedSteps).map(function(s){ return '<li>'+esc(s)+'</li>'; }).join('') + '</ul>';
+    stepsHtml = '<ul class="steps">' + d.steps.slice(0,revealedSteps).map(stepHtml).join('') + '</ul>';
   }
-  var drillWord = queue.length===1 ? 'drill' : 'drills';
-  var bannerHtml = ruleFilterId ? ('<div class="filterbanner"><span class="fb-text">Practicing: <b>'+esc(ruleFilterLabel)+'</b> &middot; '+queue.length+' '+drillWord+'</span> <button class="btn small ghost" id="clearRuleFilterBtn">Show all drills</button></div>') : '';
-  // Extensions are sentences we wrote from the track's rules, not lines the
-  // teacher said - mark that provenance quietly next to the drill count.
-  // Track drills (the recording itself) are the default and stay unmarked.
-  var srcTagHtml = d.source === 'extension' ? ' &middot; <span class="src-tag">not from the recording</span>' : '';
-  var promptHtml = bannerHtml + '<div class="prompt"><div class="eng">'+esc(d.prompt)+'</div>' +
-    '<div class="cue">Track '+d.track+' &middot; drill '+(idx+1)+' of '+queue.length+srcTagHtml+'</div>' +
-    stepsHtml + '</div>';
 
-  var answerHtml = "";
-  if(answerShown){
-    var flagHtml = (typeof d.confidence === "number" && d.confidence < 0.7) ? '<span class="flag">low-confidence guess</span>' : '';
-    var noteHtml = d.note ? '<div class="note">'+esc(d.note)+'</div>' : '';
-    var whyHtml = "";
-    if(d.rules && d.rules.length){
-      whyHtml = '<div class="why"><div class="why-lbl">Why</div>' + d.rules.map(function(rid){
-        var r = ruleById(rid);
-        var lbl = r ? r.title : rid;
-        return '<button class="rulelink" data-ruleid="'+esc(rid)+'">'+esc(lbl)+' <span class="arrow">&rarr;</span></button>';
-      }).join('') + '</div>';
-    }
-    answerHtml = '<div class="answer" aria-live="polite"><div class="es" lang="es">'+esc(d.answer)+'</div>' + noteHtml + flagHtml +
-      '<div><button class="speak" id="speakBtn">Hear it</button></div>' + whyHtml + '</div>';
+  if(!answerShown){
+    return stage(cueHtml + bannerHtml + promptMarkup(d.prompt, false) + stepsHtml);
   }
-  return promptHtml + answerHtml;
+
+  // Revealing the answer adds a new block BELOW what's already on screen -
+  // it does not recompose the prompt or the hints. The prompt keeps its
+  // exact size and position (promptMarkup only dims its colour a shade);
+  // the answer's own weight and the hairline above it (see .answer in the
+  // CSS) are what make this read as an event.
+  var flagHtml = (typeof d.confidence === "number" && d.confidence < 0.7) ? '<span class="flag">low-confidence guess</span>' : '';
+  var noteHtml = d.note ? '<div class="note">'+esc(d.note)+'</div>' : '';
+  var whyHtml = "";
+  if(d.rules && d.rules.length){
+    // Both shapes are always in the DOM and CSS picks one, so fitDrill()
+    // can collapse four wrapped rule titles - a third of a small phone's
+    // screen - into a single link without a second render pass. The link
+    // lands on the same Rules tab the titles would have.
+    whyHtml = '<div class="why"><span class="why-lbl">Why</span>' + d.rules.map(function(rid){
+      var r = ruleById(rid);
+      var lbl = r ? r.title : rid;
+      return '<button class="rulelink" data-ruleid="'+esc(rid)+'">'+esc(lbl)+'</button>';
+    }).join('') +
+    (d.rules.length > 1 ? '<button class="rulelink why-all" data-ruleid="'+esc(d.rules[0])+'">'+d.rules.length+' rules</button>' : '') +
+    '</div>';
+  }
+  return stage(cueHtml + bannerHtml + promptMarkup(d.prompt, true) + stepsHtml +
+    '<div class="answer" aria-live="polite"><div class="es" lang="es">'+esc(d.answer)+'</div>' + noteHtml + flagHtml +
+    '<button class="speak" id="speakBtn">'+SPK_ICON+'<span class="speak-lbl">Hear it</span></button></div>' +
+    whyHtml);
 }
 
 function drillBarHtml(){
   var d = queue[idx];
-  if(!d) return bar('<button class="btn primary" id="homeBtn">All tracks</button>');
+  if(!d) return bar('<button class="btn" id="homeBtn">All tracks</button>');
   if(!answerShown){
     var stepsLeft = d.steps && revealedSteps < d.steps.length;
-    var stepBtn = stepsLeft ? '<button class="btn ghost small" id="nextStepBtn">'+(revealedSteps>0?"Next piece":"Give me a piece")+'</button>' : '';
-    return bar(
-      stepBtn +
-      '<button class="btn primary" id="revealBtn">Show the answer</button>'
-    );
+    // Both actions here are real choices, so both are real buttons - "Give
+    // me a piece" is primary (filled) while hints remain, "Show the answer"
+    // is secondary (bordered, not link-styled) beside it; once hints run
+    // out, "Show the answer" becomes the sole, primary action.
+    if(stepsLeft){
+      return barChoice(
+        '<button class="btn" id="nextStepBtn">Give me a piece</button>' +
+        '<button class="btn secondary" id="revealBtn">Show the answer</button>'
+      );
+    }
+    return bar('<button class="btn" id="revealBtn">Show the answer</button>');
   }
-  return bar(
-    '<button class="btn ghost" id="stuckBtn">Not yet</button>' +
-    '<button class="btn primary" id="gotBtn">Got it</button>'
+  return barGrade(
+    '<button class="no" id="stuckBtn">Not yet</button>' +
+    '<button id="gotBtn">Got it</button>'
   );
 }
 
@@ -1078,7 +1372,7 @@ function renderRules(){
   var referenced = {};
   pack.drills.forEach(function(d){ (d.rules||[]).forEach(function(rid){ referenced[rid] = true; }); });
   return '<div class="rules-list">' + rules.map(function(r){
-    var exHtml = (r.examples && r.examples.length) ? '<ul>' + r.examples.map(function(e){ return '<li>'+esc(e)+'</li>'; }).join('') + '</ul>' : '';
+    var exHtml = (r.examples && r.examples.length) ? '<ul>' + r.examples.map(exampleHtml).join('') + '</ul>' : '';
     var hl = (highlightRule===r.id) ? ' highlight' : '';
     var practiceBtn = referenced[r.id] ? '<button class="practicebtn" data-ruleid="'+esc(r.id)+'">Practice this rule &rarr;</button>' : '';
     return '<div class="rule'+hl+'" id="rule-'+esc(r.id)+'"><h3>'+esc(r.title)+'</h3><p>'+esc(r.explanation)+'</p>' + exHtml +
@@ -1102,35 +1396,37 @@ function renderSummary(){
     var s = byTrack[t];
     return '<div class="trackrow"><span class="l">Track '+t+'</span><span>'+s.ok+'/'+s.total+'</span></div>';
   }).join('') : '';
-  var summaryLine = built+' of '+queue.length+' got it'+(stuck ? ', '+stuck+' not yet' : '')+'.';
-  return '<div class="summary"><h2>Session complete</h2>' +
-    '<p class="summary-line">'+summaryLine+'</p>' +
+  // The only thing on this screen you might act on is a miss, so it's the
+  // only thing coloured here.
+  var summaryLine = built+' of '+queue.length+' got it'+(stuck ? ', <span class="miss">'+stuck+' not yet</span>' : '')+'.';
+  return '<div class="summary">' +
+    '<div class="summary-line">'+summaryLine+'</div>' +
+    (isDone(pack.id) ? '<p class="donenote">This track is marked done.</p>' : '') +
     (rows ? '<div class="tracks">'+rows+'</div>' : '') +
-    '<div style="display:flex;gap:var(--sp-2);flex-wrap:wrap;align-items:center;margin-top:var(--sp-5)">' +
-    (isDone(pack.id) ? '<div style="font-size:var(--fs-small);color:var(--muted)">This track is marked done</div>' : '') +
-    (stuck > 0 ? '<button class="btn small ghost" id="redoBtn">Redo the misses</button>' : '') +
-    '<button class="btn small ghost" id="restartBtn">Start over</button>' +
-    '</div>' +
     '</div>';
 }
 
 function summaryBarHtml(){
+  var stuck = queue.filter(function(d){ return grades[d.id] !== "got"; }).length;
+  // "Redo the misses" is suppressed at zero misses rather than shown disabled.
+  var redoHtml = stuck>0 ? '<button class="textlink" id="redoBtn">Redo the misses</button>' : '';
+  var restartHtml = '<button class="textlink" id="restartBtn">Start over</button>';
+
   if(pack.recap){
-    return bar('<button class="btn ghost" id="topHomeBtn2">All tracks</button><button class="btn primary" id="newRecapBtn">New recap &rarr;</button>');
+    return barStack('<button class="btn" id="newRecapBtn">New recap</button>' +
+      '<div class="row2"><button class="textlink" id="topHomeBtn2">All tracks</button></div>');
   }
   if(ruleFilterId){
-    return bar('<button class="btn primary" id="backToFullBtn">Back to Track '+pack.tracks[0]+'</button>');
+    return barStack('<button class="btn" id="backToFullBtn">Back to Track '+pack.tracks[0]+'</button>' +
+      '<div class="row2">'+redoHtml+restartHtml+'</div>');
   }
   var next = nextPackAfter(pack);
   if(next){
-    return bar('<button class="btn primary" id="continueBtn">Continue to Track '+next.tracks[0]+' &rarr;</button>');
+    return barStack('<button class="btn" id="continueBtn">Continue to Track '+next.tracks[0]+'</button>' +
+      '<div class="row2">'+redoHtml+restartHtml+'</div>');
   }
-  return bar('<button class="btn primary" id="topHomeBtn2">All tracks &mdash; course complete!</button>');
-}
-
-function rulesBarHtml(){
-  var label = queue.length ? "Back to drills" : "All tracks";
-  return bar('<button class="btn primary" id="backToDrillsBtn">'+label+'</button>');
+  return barStack('<button class="btn" id="topHomeBtn2">All tracks &mdash; course complete!</button>' +
+    '<div class="row2">'+redoHtml+restartHtml+'</div>');
 }
 
 function render(){
@@ -1145,7 +1441,7 @@ function render(){
     selStart = active.selectionStart; selEnd = active.selectionEnd;
   }
 
-  var html = topBarHtml() + railHtml() + tabsHtml() + '<main id="main" class="view-'+view+'">';
+  var html = headHtml() + '<main id="main" class="view-'+view+'">';
 
   if(view==="home"){
     html += renderHome();
@@ -1162,12 +1458,21 @@ function render(){
   }
   html += '</main>';
 
+  // The Rules tab is reached and left purely via the tab strip (plus the
+  // back arrow to exit the track) - no sticky bar of its own, in keeping
+  // with "no boxes, no extra chrome" once you're just reading.
   if(view==="drill") html += drillBarHtml();
-  else if(view==="rules") html += rulesBarHtml();
   else if(view==="summary") html += summaryBarHtml();
+
+  // A drill is an app screen, not a document: lock the page to the viewport
+  // so it cannot scroll, then fit the stage into what is left.
+  var locked = (view==="drill");
+  document.documentElement.classList.toggle('lock', locked);
+  document.body.classList.toggle('lock', locked);
 
   app.innerHTML = html;
   wire();
+  if(locked) fitDrill(); else clearFit();
 
   if(sameView){ window.scrollTo(0, prevScrollY); }
   lastRenderedView = view;
@@ -1185,7 +1490,7 @@ function render(){
   if(view==="rules" && highlightRule){
     var el = document.getElementById('rule-'+highlightRule);
     if(el){ el.scrollIntoView({block:"center", behavior: prefersReducedMotion() ? "auto" : "smooth"}); }
-    setTimeout(function(){ highlightRule=null; }, 1600);
+    setTimeout(function(){ highlightRule=null; }, 2000);
   }
   if(view==="home"){
     if(homeJustEntered){
@@ -1206,8 +1511,56 @@ function render(){
   }
 }
 
+// Toggling "done" changes more than one class (the progress column goes
+// from a count to nothing at all - see packCardHtml()), so the row and the
+// "where you left off" block are re-derived and swapped in whole rather than
+// patched piece by piece. wireOne() re-attaches the handful of listeners a
+// freshly-inserted fragment needs, since element.replaceWith()/outerHTML
+// don't carry old listeners over.
+function handleDoneBtnClick(ev, el){
+  ev.stopPropagation();
+  var pid = el.getAttribute('data-pid');
+  var p = DATA.packs.filter(function(x){ return x.id===pid; })[0];
+  if(!p) return;
+  setDone(pid, !isDone(pid));
+
+  var card = el.closest('.packcard');
+  if(card){
+    var tmp = document.createElement('div');
+    tmp.innerHTML = packCardHtml(p);
+    var fresh = tmp.firstChild;
+    card.replaceWith(fresh);
+    wireOne(fresh);
+  }
+
+  var hero = document.getElementById('homeHero');
+  if(hero){
+    hero.outerHTML = homeHeroHtml();
+    wireOne(document.getElementById('homeHero'));
+  }
+}
+
+function handleContinueBtnClick(ev){
+  var pid = ev.currentTarget.getAttribute('data-pid');
+  var p = DATA.packs.filter(function(x){ return x.id===pid; })[0];
+  if(p) openPack(p);
+}
+
+function wireOne(root){
+  if(!root) return;
+  var rb = root.querySelector('.rowbtn');
+  if(rb) rb.addEventListener('click', function(){
+    var p = DATA.packs.filter(function(x){ return x.id===rb.getAttribute('data-pid'); })[0];
+    if(p) openPack(p);
+  });
+  var db = root.querySelector('.donebtn');
+  if(db) db.addEventListener('click', function(ev){ handleDoneBtnClick(ev, db); });
+  var cb = root.querySelector('#continueCardBtn');
+  if(cb) cb.addEventListener('click', handleContinueBtnClick);
+}
+
 function wire(){
-  on('backBtn', goBack);
+  on('undoBtn', goBack);
   on('topHomeBtn', enterHome);
   on('glossaryBtn', function(){ enterGlossary(); });
   on('glossJumpBtn', function(){ enterGlossary(homeFilter); });
@@ -1230,31 +1583,8 @@ function wire(){
     var p = DATA.packs.filter(function(x){return x.id===el.getAttribute('data-pid');})[0];
     if(p) openPack(p);
   });
-  onAll('.donebtn', function(ev, el){
-    ev.stopPropagation();
-    var pid = el.getAttribute('data-pid');
-    var nowDone = !isDone(pid);
-    setDone(pid, nowDone);
-
-    var circle = el.querySelector('.donebtn-circle');
-    el.classList.toggle('on', nowDone);
-    el.setAttribute('aria-pressed', nowDone);
-    el.setAttribute('title', nowDone ? 'Mark not done' : 'Mark track as done');
-    if(circle) circle.innerHTML = nowDone ? '&#10003;' : '';
-    var card = el.closest('.packcard');
-    if(card) card.classList.toggle('done', nowDone);
-
-    var rec = nextRecommendedTrack();
-    var newContinueHtml = rec ? continueCardHtml(rec) :
-      '<div class="continue-card done-all" id="continueCard"><div class="meta"><div class="lbl">All '+DATA.packs.length+' tracks marked done</div><div class="sub">Revisit any track below for another pass.</div></div></div>';
-    var existingContinue = document.getElementById('continueCard');
-    if(existingContinue){ existingContinue.outerHTML = newContinueHtml; }
-  });
-  on('continueCardBtn', function(ev){
-    var pid = ev.target.getAttribute('data-pid');
-    var p = DATA.packs.filter(function(x){return x.id===pid;})[0];
-    if(p) openPack(p);
-  });
+  onAll('.donebtn', handleDoneBtnClick);
+  on('continueCardBtn', handleContinueBtnClick);
   on('recapBtn', function(){ startRecap(); render(); });
   on('newRecapBtn', function(){ startRecap(); render(); });
 
@@ -1299,13 +1629,25 @@ function wire(){
     var next = nextPackAfter(pack);
     if(next){ openPack(next); } else { enterHome(); }
   });
-  on('backToDrillsBtn', function(){ if(queue.length){ view="drill"; render(); } else { enterHome(); } });
 }
 
 window.addEventListener('popstate', function(ev){
   if(view==="glossary" || view==="backup"){ suppressPush = true; enterHome(); suppressPush = false; return; }
   if(pack){ suppressPush = true; goBack(); suppressPush = false; }
 });
+
+// Rotating the phone, a desktop window resize, or the mobile URL bar
+// sliding away all change the box the stage has to fit into. Refit rather
+// than re-render: a re-render would rebuild the DOM and lose nothing
+// visible, but refitting is the whole of the work and costs one reflow.
+var refitPending = false;
+function scheduleRefit(){
+  if(refitPending || view!=="drill") return;
+  refitPending = true;
+  requestAnimationFrame(function(){ refitPending = false; if(view==="drill") fitDrill(); });
+}
+window.addEventListener('resize', scheduleRefit);
+window.addEventListener('orientationchange', scheduleRefit);
 
 render();
 })();

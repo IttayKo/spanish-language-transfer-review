@@ -22,6 +22,8 @@ const http = require('http');
 
 const REPO_ROOT = path.join(__dirname, '..');
 const INDEX_PATH = process.env.LT_INDEX_HTML || path.join(REPO_ROOT, 'index.html');
+// Must match RECAP_SIZE in app/lt-review-app.tmpl.html.
+const RECAP_SIZE_EXPECTED = 12;
 
 function fail(msg) {
   console.error('FAIL: ' + msg);
@@ -164,10 +166,13 @@ async function main() {
     const goldenPack = drillPacks.slice().sort((a, b) => a.drills.length - b.drills.length)[0];
 
     await page.click(`.rowbtn[data-pid="${cssEscape(goldenPack.id)}"]`);
-    await page.waitForSelector('#top h1');
-    const trackTitle = (await page.textContent('#top h1')).trim();
-    check(trackTitle === goldenPack.label, `opening ${goldenPack.id} shows its own title in the top bar`,
-      `got ${JSON.stringify(trackTitle)}, expected ${JSON.stringify(goldenPack.label)}`);
+    // The redesign's pack-view header (back arrow + Drills/Rules tabs) carries
+    // no title of its own - the track identifies itself in the cue line
+    // instead ("Track N · drill i of n"), so that's where this check looks.
+    await page.waitForSelector('.cue');
+    const cueTitleText = (await page.textContent('.cue')).trim();
+    check(cueTitleText.indexOf(goldenPack.label) === 0, `opening ${goldenPack.id} shows its own track label in the cue line`,
+      `got ${JSON.stringify(cueTitleText)}, expected it to start with ${JSON.stringify(goldenPack.label)}`);
 
     check(await page.locator('#revealBtn').count() > 0, 'first drill has a reveal-answer button');
     for (let i = 0; i < goldenPack.drills.length; i++) {
@@ -210,15 +215,15 @@ async function main() {
         const targetPid = await practiceBtn.getAttribute('data-pid');
         const targetRuleId = await practiceBtn.getAttribute('data-ruleid');
         await practiceBtn.click();
-        await page.waitForSelector('#top h1');
+        await page.waitForSelector('.cue');
 
         const bannerCount = await page.locator('.filterbanner').count();
-        check(bannerCount > 0, 'practicing a rule from the glossary shows the "Practicing:" filter banner');
-        const landedTitle = (await page.textContent('#top h1')).trim();
+        check(bannerCount > 0, 'practicing a rule from the glossary shows the "Only drills for:" filter banner');
+        const landedTitle = (await page.textContent('.cue')).trim();
         const targetPack = DATA.packs.find((p) => p.id === targetPid);
-        check(landedTitle === (targetPack ? targetPack.label : null),
+        check(!!targetPack && landedTitle.indexOf(targetPack.label) === 0,
           'practicing a glossary rule lands on the right track',
-          `got ${JSON.stringify(landedTitle)}, expected ${JSON.stringify(targetPack && targetPack.label)}`);
+          `cue read ${JSON.stringify(landedTitle)}, expected it to start with ${JSON.stringify(targetPack && targetPack.label)}`);
 
         // Reveal and confirm the drill is actually tagged with the rule we
         // asked to practice (the filter did what it claims).
@@ -268,10 +273,14 @@ async function main() {
     check((seedCardClass || '').split(/\s+/).includes('done'),
       'seeded pack shows as done on the home screen, read back from lt-review-done',
       `class was ${JSON.stringify(seedCardClass)}`);
-    const progText = (await seedCard.locator('.prog').textContent()).trim();
-    check(progText === `2/${pool.length}`,
-      'seeded pack shows the right progress count, read back from lt-review:<id>',
-      `got ${JSON.stringify(progText)}, expected "2/${pool.length}" (2 "got" grades)`);
+    // Success is unmarked by design: a track marked done shows nothing in the
+    // progress column (the filled tick already said it) even though it also
+    // has partial per-drill grades underneath - so the read-back of
+    // lt-review:<id> is verified below instead, via where the track resumes.
+    const progCountWhileDone = await seedCard.locator('.prog').count();
+    check(progCountWhileDone === 0,
+      'a done track shows nothing in the progress column, even with partial grades underneath',
+      `found ${progCountWhileDone} .prog element(s)`);
 
     // Open it: it should resume at the first ungraded drill (index 3), not
     // restart at drill 1.
@@ -386,11 +395,13 @@ async function main() {
     const restoredCard = page.locator(`.packcard[data-pid="${cssEscape(seedPack.id)}"]`);
     const restoredCardClass = await restoredCard.getAttribute('class');
     check((restoredCardClass || '').split(/\s+/).includes('done'), 'imported backup restores the done tick');
-    const restoredProgText = (await restoredCard.locator('.prog').textContent()).trim();
-    const expectedGotCount = Object.values(expectedSeedGrades).filter((g) => g === 'got').length;
-    check(restoredProgText === `${expectedGotCount}/${pool.length}`,
-      'imported backup restores the exact progress count',
-      `got ${JSON.stringify(restoredProgText)}, expected "${expectedGotCount}/${pool.length}"`);
+    // Same "success is unmarked" rule as above: this track is done, so its
+    // progress column is empty on the home screen; the exact restored grades
+    // (the real content of the count) are checked below via localStorage.
+    const restoredProgCount = await restoredCard.locator('.prog').count();
+    check(restoredProgCount === 0,
+      'a done track restored by import still shows nothing in the progress column',
+      `found ${restoredProgCount} .prog element(s)`);
 
     const restoredGrades = await page.evaluate(
       (pid) => JSON.parse(localStorage.getItem('lt-review:' + pid) || '{}'), seedPack.id);
@@ -421,18 +432,23 @@ async function main() {
 
     // Whatever's on screen right now is from the import round trip above -
     // note it so we can confirm the exact same thing survives being served
-    // from the offline cache below.
-    const preOfflineProg = (await page.locator(`.packcard[data-pid="${cssEscape(seedPack.id)}"] .prog`).textContent()).trim();
+    // from the offline cache below. seedPack is marked done (so its
+    // progress column is empty by design - "success is unmarked"), so the
+    // done tick's class is the signal to compare instead of .prog text.
+    const preOfflineDone = ((await page.locator(`.packcard[data-pid="${cssEscape(seedPack.id)}"]`).getAttribute('class')) || '')
+      .split(/\s+/).includes('done');
+    check(preOfflineDone, 'the seeded pack is showing as done before going offline (sanity check)');
 
     await context.setOffline(true);
     await page.reload({ waitUntil: 'load' });
     const offlineCardCount = await page.locator('.packcard').count();
     check(offlineCardCount === DATA.packs.length,
       'the app still loads and renders every track while offline, served from the service worker cache');
-    const offlineProg = (await page.locator(`.packcard[data-pid="${cssEscape(seedPack.id)}"] .prog`).textContent()).trim();
-    check(offlineProg === preOfflineProg,
+    const offlineDone = ((await page.locator(`.packcard[data-pid="${cssEscape(seedPack.id)}"]`).getAttribute('class')) || '')
+      .split(/\s+/).includes('done');
+    check(offlineDone === preOfflineDone,
       'progress (feature 1) survives being served offline from the cache',
-      `got ${JSON.stringify(offlineProg)}, expected ${JSON.stringify(preOfflineProg)}`);
+      `got done=${offlineDone}, expected done=${preOfflineDone}`);
     await context.setOffline(false);
 
     // Simulate a real deploy landing while this client was offline: swap the
@@ -453,6 +469,185 @@ async function main() {
 
     check(pageErrors.length === 0, 'no page/console errors during the PWA/offline checks',
       pageErrors.join('\n  '));
+
+    // ==================== recap pool correctness ====================
+    // Regression coverage for the recap bug: "seems like it's always the
+    // same and only 2 drills." Root cause was that startRecap() pooled ONLY
+    // drills that already carried a grade, while marking a track done via
+    // the home-screen circle grades nothing - so a learner with several
+    // tracks ticked done and a couple of graded drills got a pool of ~2
+    // forever. Seed exactly that shape and confirm recap now draws from
+    // every drill in every covered track, actually delivers RECAP_SIZE when
+    // that many exist, and that two consecutive recaps genuinely differ.
+    await page.evaluate(() => { try { localStorage.clear(); } catch (e) { /* ignore */ } });
+
+    const recapPacks = DATA.packs.filter((p) => (p.drills || []).length >= 3).slice(0, 6);
+    check(recapPacks.length === 6, 'found 6 packs with >=3 drills to seed a realistic recap scenario');
+    const totalCoveredDrills = recapPacks.reduce((n, p) => n + p.drills.length, 0);
+    check(totalCoveredDrills > RECAP_SIZE_EXPECTED,
+      'the seeded covered tracks hold more drills than RECAP_SIZE, so a full recap is actually exercised',
+      `got ${totalCoveredDrills} drills across ${recapPacks.length} tracks`);
+
+    await page.evaluate(({ doneIds, gradedPackId, gradedDrillIds }) => {
+      const doneMap = {};
+      doneIds.forEach((id) => { doneMap[id] = true; });
+      localStorage.setItem('lt-review-done', JSON.stringify(doneMap));
+      // Exactly two graded drills total, inside one of the done tracks -
+      // this is the "5 tracks done, 2 graded drills" shape that used to
+      // starve recap down to "drill 1 of 2, always the same two".
+      const grades = {};
+      grades[gradedDrillIds[0]] = 'got';
+      grades[gradedDrillIds[1]] = 'stuck';
+      localStorage.setItem('lt-review:' + gradedPackId, JSON.stringify(grades));
+    }, {
+      doneIds: recapPacks.map((p) => p.id),
+      gradedPackId: recapPacks[0].id,
+      gradedDrillIds: [recapPacks[0].drills[0].id, recapPacks[0].drills[1].id],
+    });
+
+    await page.reload({ waitUntil: 'load' });
+    await page.waitForSelector('.packcard');
+    await page.waitForSelector('#recapBtn');
+    await page.click('#recapBtn');
+    await page.waitForSelector('.cue');
+
+    // Steps through an entire recap session (revealing and grading "got" on
+    // every drill, which only ever touches the isolated "lt-review:recap"
+    // key, never the seeded per-track grades) and returns an ordered list
+    // identifying each drill served, so two runs can be compared.
+    const stepThroughRecap = async () => {
+      const seq = [];
+      for (;;) {
+        const cueText = (await page.textContent('.cue')).trim();
+        const m = /drill \d+ of (\d+)/.exec(cueText);
+        if (!m) break;
+        const total = parseInt(m[1], 10);
+        await page.click('#revealBtn');
+        const answerText = (await page.textContent('.answer .es')).trim();
+        seq.push(cueText.replace(/drill \d+ of \d+/, 'drill') + '|' + answerText);
+        await page.click('#gotBtn');
+        if (seq.length >= total) break;
+        await page.waitForSelector('.cue');
+      }
+      return seq;
+    };
+
+    const recapSeq1 = await stepThroughRecap();
+    check(recapSeq1.length > 2 * 3,
+      'recap returns substantially more drills than the 2 explicitly graded ones',
+      `got ${recapSeq1.length} drills from a pool with only 2 graded`);
+    check(recapSeq1.length === Math.min(RECAP_SIZE_EXPECTED, totalCoveredDrills),
+      'recap actually delivers RECAP_SIZE drills when that many are available across covered tracks',
+      `got ${recapSeq1.length}, expected ${Math.min(RECAP_SIZE_EXPECTED, totalCoveredDrills)}`);
+
+    await page.waitForSelector('#newRecapBtn');
+    await page.click('#newRecapBtn');
+    await page.waitForSelector('.cue');
+    const recapSeq2 = await stepThroughRecap();
+    check(recapSeq2.length === Math.min(RECAP_SIZE_EXPECTED, totalCoveredDrills),
+      'a second recap also delivers RECAP_SIZE drills',
+      `got ${recapSeq2.length}`);
+    check(JSON.stringify(recapSeq1) !== JSON.stringify(recapSeq2),
+      'two consecutive recaps are not identical',
+      'both recap runs produced the exact same sequence of drills in the exact same order');
+
+    check(pageErrors.length === 0, 'no page/console errors during the recap pool check',
+      pageErrors.join('\n  '));
+
+    // ---------- the drill screen never scrolls, and never clips either ----------
+    // The drill view is meant to behave like an app screen, not a document:
+    // head, stage and action bar inside exactly one viewport, at every size,
+    // for every drill. fitDrill() delivers that by squeezing space, then type,
+    // then the periphery - so the two ways it can be wrong are letting the
+    // page scroll (the guarantee broken) and running out of ladder and
+    // clipping the answer off the bottom (much worse than scrolling). Both
+    // are asserted here, on the densest drills in the dataset, in the tallest
+    // state a drill can reach: every hint out AND the answer shown.
+    const VIEWPORTS = [
+      { name: 'small phone', width: 320, height: 568 },
+      { name: 'phone', width: 375, height: 667 },
+      { name: 'tall phone', width: 390, height: 844 },
+      { name: 'tablet', width: 768, height: 1024 },
+      { name: 'desktop', width: 1280, height: 800 },
+      { name: 'short desktop', width: 1280, height: 600 },
+      { name: 'phone, sideways', width: 844, height: 390 },
+    ];
+    const DENSE_N = 6;
+    const density = (d) => (d.steps || []).length * 40 + d.prompt.length +
+      d.answer.length * 1.4 + (d.rules || []).length * 30 + (d.note ? d.note.length : 0);
+    const densest = [];
+    for (const p of DATA.packs) {
+      (p.drills || []).forEach((d, i) => densest.push({ packId: p.id, pack: p, idx: i, id: d.id, score: density(d) }));
+    }
+    densest.sort((a, b) => b.score - a.score);
+    const denseTargets = densest.slice(0, DENSE_N);
+    check(denseTargets.length === DENSE_N,
+      `found ${DENSE_N} drills to probe the drill screen's fit with`,
+      `only got ${denseTargets.length}`);
+
+    const fitPage = await context.newPage();
+    const fitErrors = [];
+    fitPage.on('pageerror', (e) => fitErrors.push('pageerror: ' + e.message));
+    fitPage.on('console', (m) => { if (m.type() === 'error') fitErrors.push('console error: ' + m.text()); });
+
+    const scrolled = [], clipped = [], barLost = [], wrongDrill = [];
+    for (const vp of VIEWPORTS) {
+      await fitPage.setViewportSize({ width: vp.width, height: vp.height });
+      for (const t of denseTargets) {
+        // Resume lands on the first ungraded drill, so grading everything
+        // before the target opens the pack straight onto it.
+        const seed = {};
+        for (let i = 0; i < t.idx; i++) seed[t.pack.drills[i].id] = 'got';
+        await fitPage.goto(url, { waitUntil: 'load' });
+        await fitPage.evaluate(([k, v]) => { localStorage.clear(); localStorage.setItem(k, v); },
+          ['lt-review:' + t.packId, JSON.stringify(seed)]);
+        await fitPage.reload({ waitUntil: 'load' });
+        await fitPage.waitForSelector('.packcard');
+        await fitPage.evaluate((id) => document.getElementById('pack-' + id).querySelector('.rowbtn').click(), t.packId);
+        await fitPage.waitForSelector('#stage');
+
+        const cue = await fitPage.$eval('.cue span', (el) => el.textContent).catch(() => '');
+        if (!cue.includes(`drill ${t.idx + 1} `)) { wrongDrill.push(`${vp.name}/${t.id}: ${cue}`); continue; }
+
+        for (;;) { const n = await fitPage.$('#nextStepBtn'); if (!n) break; await n.click(); }
+        await fitPage.click('#revealBtn');
+        await fitPage.waitForSelector('.answer');
+
+        const m = await fitPage.evaluate(() => {
+          const st = document.getElementById('stage');
+          const de = document.documentElement;
+          const bar = document.getElementById('bar').getBoundingClientRect();
+          return {
+            clip: st.scrollHeight - st.clientHeight,
+            docScroll: de.scrollHeight - de.clientHeight,
+            bodyScroll: document.body.scrollHeight - document.body.clientHeight,
+            barBottom: bar.bottom, barTop: bar.top, vh: window.innerHeight,
+            answerBottom: document.querySelector('.answer .es').getBoundingClientRect().bottom,
+          };
+        });
+        if (m.clip > 1) clipped.push(`${vp.name}/${t.id} by ${Math.round(m.clip)}px`);
+        if (m.docScroll > 1 || m.bodyScroll > 1) scrolled.push(`${vp.name}/${t.id}`);
+        if (m.barBottom > m.vh + 1) barLost.push(`${vp.name}/${t.id}: bar below the fold`);
+        if (m.answerBottom > m.barTop + 1) barLost.push(`${vp.name}/${t.id}: answer runs under the bar`);
+
+        await fitPage.mouse.wheel(0, 800);
+        const y = await fitPage.evaluate(() => window.scrollY);
+        if (y > 0) scrolled.push(`${vp.name}/${t.id}: wheel moved the page to ${y}`);
+      }
+    }
+    await fitPage.close();
+
+    check(wrongDrill.length === 0, 'the fit probe reached every drill it meant to measure', wrongDrill.join('; '));
+    check(scrolled.length === 0,
+      `the drill screen never scrolls (${DENSE_N} densest drills x ${VIEWPORTS.length} viewports, fully revealed)`,
+      scrolled.join('; '));
+    check(clipped.length === 0,
+      'and fits without clipping - the fit ladder never runs out on a real drill',
+      clipped.join('; '));
+    check(barLost.length === 0, 'the grade buttons stay in view, with the answer clear of them',
+      barLost.join('; '));
+    check(fitErrors.length === 0, 'no page/console errors during the drill fit check',
+      fitErrors.join('\n  '));
   } catch (e) {
     fail('smoke test threw: ' + (e && e.stack || e));
   } finally {
