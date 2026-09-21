@@ -750,6 +750,167 @@ async function main() {
     check(fitErrors.length === 0, 'no page/console errors during the drill fit check',
       fitErrors.join('\n  '));
 
+    // ==================== auto-finish: leaving a full track marks it done ====================
+    // "Progress is full" means every drill in the pack carries a grade, got
+    // or stuck alike - not that every grade is "got". Leaving a full track by
+    // any exit (the new Finish button, the header back arrow, browser back)
+    // is meant to tick it done on its own; a partially graded track, a
+    // rule-filtered slice of one, and a recap must never be auto-ticked (see
+    // maybeAutoFinish() and packFullyGraded() in the template for exactly
+    // what "full" excludes and why).
+    const orderedByTrack = DATA.packs.slice().sort((a, b) => a.tracks[0] - b.tracks[0]);
+    const lastTrackPack = orderedByTrack[orderedByTrack.length - 1];
+    const drillLessPack = DATA.packs.find((p) => (p.drills || []).length === 0);
+    check(!!drillLessPack, 'found a drills-only-rules pack (track 1) to test the auto-finish exclusion on');
+
+    // Three distinct, small, non-final packs so the scenarios below don't
+    // tread on each other's stored grades.
+    const finishCandidates = DATA.packs
+      .filter((p) => (p.drills || []).length >= 2 && p.id !== lastTrackPack.id)
+      .sort((a, b) => a.drills.length - b.drills.length);
+    check(finishCandidates.length >= 3, 'found at least 3 small non-final packs for the auto-finish checks');
+    const finishPack = finishCandidates[0];
+    const backPack = finishCandidates[1];
+    const partialPack = finishCandidates[2];
+
+    const isDoneOnHome = async (pg, pid) => {
+      const cls = await pg.locator(`.packcard[data-pid="${cssEscape(pid)}"]`).getAttribute('class');
+      return (cls || '').split(/\s+/).includes('done');
+    };
+    const clearAndReload = async (pg) => {
+      await pg.evaluate(() => { try { localStorage.clear(); } catch (e) { /* ignore */ } });
+      await pg.reload({ waitUntil: 'load' });
+      await pg.waitForSelector('.packcard');
+    };
+    const gradeAllGot = async (pg, n) => {
+      for (let i = 0; i < n; i++) {
+        await pg.click('#revealBtn');
+        await pg.click('#gotBtn');
+      }
+    };
+
+    // ---- 1. pressing Finish on a fully-graded track marks it done ----
+    await clearAndReload(page);
+    await page.click(`.rowbtn[data-pid="${cssEscape(finishPack.id)}"]`);
+    await page.waitForSelector('.cue');
+    await gradeAllGot(page, finishPack.drills.length);
+    check(await page.locator('#finishBtn').count() > 0,
+      `${finishPack.id} has a next track, so its summary offers a Finish button beside Continue`);
+    await page.click('#finishBtn');
+    await page.waitForSelector('.packcard');
+    check(await isDoneOnHome(page, finishPack.id),
+      'pressing Finish on a fully-graded track marks it done on the home screen');
+
+    // ---- 2. leaving a fully-graded track via the header back arrow (not Finish) also marks it done ----
+    await clearAndReload(page);
+    await page.click(`.rowbtn[data-pid="${cssEscape(backPack.id)}"]`);
+    await page.waitForSelector('.cue');
+    await gradeAllGot(page, backPack.drills.length);
+    await page.click('#topHomeBtn'); // header "<- Tracks", not the summary's Finish button
+    await page.waitForSelector('.packcard');
+    check(await isDoneOnHome(page, backPack.id),
+      'leaving a fully-graded track via the header back arrow marks it done too, same as Finish');
+
+    // ---- 3. a track only partly graded is not auto-marked when left ----
+    await clearAndReload(page);
+    check(partialPack.drills.length >= 2, `${partialPack.id} has enough drills to grade only some of them`);
+    await page.click(`.rowbtn[data-pid="${cssEscape(partialPack.id)}"]`);
+    await page.waitForSelector('.cue');
+    await gradeAllGot(page, partialPack.drills.length - 1); // leave the last drill ungraded
+    await page.click('#topHomeBtn');
+    await page.waitForSelector('.packcard');
+    check(!(await isDoneOnHome(page, partialPack.id)),
+      'leaving a track with an ungraded drill left over does not mark it done');
+
+    // ---- 4. a rule-filtered session, finished, does not finish the whole track ----
+    // (unless the filter happens to cover every drill in the pack, so this
+    // deliberately picks one that covers a strict subset).
+    let rulePack = null, ruleId = null;
+    findRule:
+    for (const p of DATA.packs) {
+      const drills = p.drills || [];
+      if (!drills.length) continue;
+      const counts = {};
+      drills.forEach((d) => (d.rules || []).forEach((rid) => { counts[rid] = (counts[rid] || 0) + 1; }));
+      for (const rid of Object.keys(counts)) {
+        if (counts[rid] > 0 && counts[rid] < drills.length) { rulePack = p; ruleId = rid; break findRule; }
+      }
+    }
+    check(!!rulePack && !!ruleId,
+      "found a rule that covers only some of its track's drills, to test the filtered summary with");
+    if (rulePack) {
+      await clearAndReload(page);
+      await page.click(`.rowbtn[data-pid="${cssEscape(rulePack.id)}"]`);
+      await page.waitForSelector('.cue');
+      await page.click('#tabRules');
+      await page.waitForSelector(`.practicebtn[data-ruleid="${cssEscape(ruleId)}"]`);
+      await page.click(`.practicebtn[data-ruleid="${cssEscape(ruleId)}"]`);
+      await page.waitForSelector('.cue');
+      const filteredCount = rulePack.drills.filter((d) => (d.rules || []).indexOf(ruleId) !== -1).length;
+      await gradeAllGot(page, filteredCount);
+      check(await page.locator('#backToFullBtn').count() > 0,
+        'finishing a rule-filtered session reaches its own summary bar');
+      await page.click('#topHomeBtn'); // leave via the header, the same funnel a Finish click uses
+      await page.waitForSelector('.packcard');
+      check(!(await isDoneOnHome(page, rulePack.id)),
+        `finishing a rule-filtered session (${filteredCount}/${rulePack.drills.length} drills) does not mark the whole track done`);
+    }
+
+    // ---- 5. a recap can never mark anything done, including under the id "recap" ----
+    await page.evaluate(() => { try { localStorage.clear(); } catch (e) { /* ignore */ } });
+    const recapSeedPacks = DATA.packs.filter((p) => (p.drills || []).length >= 2).slice(0, 4);
+    check(recapSeedPacks.length === 4, "found 4 packs to seed as \"covered\" for the recap-can't-finish check");
+    await page.evaluate((ids) => {
+      const doneMap = {};
+      ids.forEach((id) => { doneMap[id] = true; });
+      localStorage.setItem('lt-review-done', JSON.stringify(doneMap));
+    }, recapSeedPacks.map((p) => p.id));
+    await page.reload({ waitUntil: 'load' });
+    await page.waitForSelector('#recapBtn');
+    await page.click('#recapBtn');
+    await page.waitForSelector('.cue');
+    let recapTotal = null;
+    for (let i = 0; ; i++) {
+      const cueText = (await page.textContent('.cue')).trim();
+      const m = /drill \d+ of (\d+)/.exec(cueText);
+      if (!m) break;
+      if (recapTotal === null) recapTotal = parseInt(m[1], 10);
+      await page.click('#revealBtn');
+      await page.click('#gotBtn');
+      if (i + 1 >= recapTotal) break;
+      await page.waitForSelector('.cue');
+    }
+    check(await page.locator('#topHomeBtn2').count() > 0, 'a finished recap reaches its summary bar');
+    const recapFinishLabel = (await page.textContent('#topHomeBtn2')).trim();
+    check(recapFinishLabel.indexOf('Finish') !== -1,
+      "the recap summary's leave button says Finish - it's already the finish action, just relabelled",
+      `got ${JSON.stringify(recapFinishLabel)}`);
+    await page.click('#topHomeBtn2');
+    await page.waitForSelector('.packcard');
+    const doneMapAfterRecap = await page.evaluate(() => JSON.parse(localStorage.getItem('lt-review-done') || '{}'));
+    check(!('recap' in doneMapAfterRecap),
+      'finishing a recap never writes a done entry for the synthetic id "recap"',
+      `done map: ${JSON.stringify(doneMapAfterRecap)}`);
+    check(Object.keys(doneMapAfterRecap).sort().join(',') === recapSeedPacks.map((p) => p.id).sort().join(','),
+      'finishing a recap does not mark any additional track done beyond what was already ticked',
+      `done map: ${JSON.stringify(doneMapAfterRecap)}`);
+
+    // ---- 6. a drills-only pack (no drills at all, e.g. track 1) is never auto-marked done ----
+    // `every drill graded` is vacuously true over an empty array; that
+    // accident is deliberately excluded (see packFullyGraded()).
+    if (drillLessPack) {
+      await clearAndReload(page);
+      await page.click(`.rowbtn[data-pid="${cssEscape(drillLessPack.id)}"]`);
+      await page.waitForSelector('#topHomeBtn');
+      await page.click('#topHomeBtn');
+      await page.waitForSelector('.packcard');
+      check(!(await isDoneOnHome(page, drillLessPack.id)),
+        `opening and leaving a drills-only pack (${drillLessPack.id}) never auto-marks it done`);
+    }
+
+    check(pageErrors.length === 0, 'no page/console errors during the auto-finish checks',
+      pageErrors.join('\n  '));
+
     // ---------- /demo cannot touch a real user's progress ----------
     // The demo ships sample progress so the screens aren't empty, and it
     // lives on the same origin as the app - which means it shares

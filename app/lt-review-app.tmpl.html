@@ -338,6 +338,11 @@ main.view-drill{flex:1;min-height:0;display:flex;flex-direction:column;padding-b
 }
 .bar.stack{flex-direction:column;align-items:stretch;gap:var(--s3)}
 .bar.stack .row2{display:flex;align-items:center;gap:var(--s4)}
+/* Two real, competing actions on one row (Continue / Finish) - same idea as
+   .bar.choice on the drill screen, scoped under .stack instead of being a
+   .bar of its own so it doesn't duplicate the outer bar's border/background. */
+.bar.stack .row1{display:flex;gap:var(--s3)}
+.bar.stack .row1 .btn{flex:1}
 .btn{
   appearance:none;border:0;background:var(--ink);color:var(--paper);
   border-radius:3px;padding:15px 20px;min-height:52px;font-size:.9375rem;font-weight:600;cursor:pointer;font-family:var(--sans);
@@ -540,11 +545,53 @@ function packProgress(p){
   return {done:got, total:total};
 }
 
+// "Full" for auto-finish purposes: every drill in the pack carries a grade,
+// "got" or "stuck" alike - it's about having been through all of it, not
+// about having gotten it all right, so this can't reuse packProgress's
+// `done` (that counts only "got"). Reads the stored grades directly rather
+// than `queue`, because a rule-filtered session's queue is only a slice of
+// the pack (see startSession) and finishing the slice doesn't mean the
+// track is full. A pack with no drills of its own (track 1) is deliberately
+// never "full": `every` over an empty array is vacuously true, and a
+// rules-only track was never "worked through" in the sense this is asking
+// about, so it must never auto-mark itself done just by being opened.
+function packFullyGraded(p){
+  if(!p.drills.length) return false;
+  var raw; try{ raw = localStorage.getItem(KEY_PREFIX + p.id); }catch(e){ raw = null; }
+  if(!raw) return false;
+  var g; try{ g = JSON.parse(raw); }catch(e){ return false; }
+  for(var i=0;i<p.drills.length;i++){
+    if(g[p.drills[i].id] === undefined) return false;
+  }
+  return true;
+}
+
 /* ---------- "mark as done" tracking (separate from per-drill grades) ---------- */
 function getDoneMap(){ try{ return JSON.parse(localStorage.getItem(KEY_DONE) || "{}"); }catch(e){ return {}; } }
 function setDoneMap(m){ try{ localStorage.setItem(KEY_DONE, JSON.stringify(m)); }catch(e){} }
 function isDone(pid){ return !!getDoneMap()[pid]; }
 function setDone(pid, val){ var m = getDoneMap(); if(val){ m[pid] = true; } else { delete m[pid]; } setDoneMap(m); }
+
+// Auto-mark a track done the moment it's left with its progress full. Hooked
+// into enterHome(), the one funnel every exit runs through (the header's
+// "Tracks" arrow, the "All tracks"/"Finish" buttons, and browser back via
+// goBack()) - plus "Continue to Track N+1" on the summary bar, which is the
+// one exit that skips enterHome() entirely (see its handler in wire()).
+// Never fires for a recap: startRecap() builds a synthetic pack with no
+// track of its own to mark, and its grades live under the "recap" storage
+// key, not any real track's (see startRecap()'s comment). Only ever turns
+// the tick on, and does nothing if it's already on - so it can't clobber a
+// done-mark someone set by hand before every drill was graded. It also can't
+// tell "still working through it" apart from "already finished, taking
+// another look": un-ticking a finished track by hand and then re-entering
+// and leaving it again will re-tick it. That's accepted as the simplest
+// correct-enough behaviour rather than adding session bookkeeping to spot
+// the difference.
+function maybeAutoFinish(p){
+  if(!p || p.recap) return;
+  if(isDone(p.id)) return;
+  if(packFullyGraded(p)) setDone(p.id, true);
+}
 
 function orderedPacks(){ return DATA.packs.slice().sort(function(a,b){ return a.tracks[0]-b.tracks[0]; }); }
 
@@ -944,6 +991,7 @@ function enterGlossary(prefill){
 }
 
 function enterHome(){
+  maybeAutoFinish(pack);
   pack = null; view = "home"; homeJustEntered = true; render();
 }
 
@@ -1532,8 +1580,12 @@ function summaryBarHtml(){
   var restartHtml = '<button class="textlink" id="restartBtn">Start over</button>';
 
   if(pack.recap){
+    // A recap can never mark a track done - see maybeAutoFinish() - so its
+    // only "finish" action is leaving, never a done-mark. "All tracks" was
+    // already exactly that button; relabelled rather than adding a second,
+    // redundant one beside it.
     return barStack('<button class="btn" id="newRecapBtn">New recap</button>' +
-      '<div class="row2"><button class="textlink" id="topHomeBtn2">All tracks</button></div>');
+      '<div class="row2"><button class="textlink" id="topHomeBtn2">Finish</button></div>');
   }
   if(ruleFilterId){
     return barStack('<button class="btn" id="backToFullBtn">Back to Track '+pack.tracks[0]+'</button>' +
@@ -1541,10 +1593,17 @@ function summaryBarHtml(){
   }
   var next = nextPackAfter(pack);
   if(next){
-    return barStack('<button class="btn" id="continueBtn">Continue to Track '+next.tracks[0]+'</button>' +
+    // Continuing is the more common next action, so it stays primary - but
+    // Finish is a real second choice beside it (bordered, see .btn.secondary),
+    // not a text link buried in the row underneath: leaving here is exactly
+    // as legitimate a thing to do as moving on to the next track, and it's
+    // the one shape of this screen where the two genuinely compete.
+    return barStack(
+      '<div class="row1"><button class="btn" id="continueBtn">Continue to Track '+next.tracks[0]+'</button>' +
+      '<button class="btn secondary" id="finishBtn">Finish</button></div>' +
       '<div class="row2">'+redoHtml+restartHtml+'</div>');
   }
-  return barStack('<button class="btn" id="topHomeBtn2">All tracks &mdash; course complete!</button>' +
+  return barStack('<button class="btn" id="topHomeBtn2">Finish &mdash; course complete!</button>' +
     '<div class="row2">'+redoHtml+restartHtml+'</div>');
 }
 
@@ -1745,11 +1804,19 @@ function wire(){
     render();
   });
   on('restartBtn', function(){ startSession({restart:true}); render(); });
+  // "Continue to Track N+1" skips enterHome() entirely (it opens the next
+  // pack directly), so it runs the same auto-finish check enterHome() does
+  // rather than marking this track done unconditionally - a track can only
+  // reach this button once every one of its own drills has just been
+  // graded, so in practice this always fires, but it stays gated for the
+  // same reason enterHome()'s check is: "done" means "worked through", not
+  // "moved past".
   on('continueBtn', function(){
-    setDone(pack.id, true);
+    maybeAutoFinish(pack);
     var next = nextPackAfter(pack);
     if(next){ openPack(next); } else { enterHome(); }
   });
+  on('finishBtn', enterHome);
 }
 
 window.addEventListener('popstate', function(ev){

@@ -13,7 +13,7 @@
 // Bumped automatically on every build (it's a hash of the built index.html),
 // so any content or code change ships a byte-different sw.js, which the
 // browser detects as an update on its own.
-var BUILD_ID = "44360b2611df";
+var BUILD_ID = "fcd538f3b843";
 var CACHE_NAME = "lt-review-" + BUILD_ID;
 
 // ---- KILL SWITCH ----
