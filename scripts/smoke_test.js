@@ -44,6 +44,16 @@ function startServer(state) {
       const urlPath = (req.url || '/').split('?')[0];
       if (urlPath === '/favicon.ico') { res.writeHead(204); res.end(); return; }
 
+      // /demo is the second build the same source produces: the app
+      // pointed at its own storage keys, opened with sample progress. It is
+      // served here so the isolation between the two can be tested for real,
+      // in one browser profile, the way a visitor would hit it.
+      if (urlPath === '/demo' || urlPath === '/demo/' || urlPath === '/demo/index.html') {
+        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+        res.end(state.demoHtml || '');
+        return;
+      }
+
       if (urlPath === '/sw.js' || urlPath === '/manifest.json' || urlPath.indexOf('/icons/') === 0) {
         const filePath = path.join(REPO_ROOT, urlPath);
         const ext = path.extname(filePath);
@@ -77,7 +87,9 @@ async function main() {
     return;
   }
 
-  const serverState = { html };
+  const DEMO_PATH = path.join(REPO_ROOT, 'demo', 'index.html');
+  const demoHtml = fs.existsSync(DEMO_PATH) ? fs.readFileSync(DEMO_PATH, 'utf-8') : '';
+  const serverState = { html, demoHtml };
   const server = await startServer(serverState);
   const port = server.address().port;
   const url = `http://127.0.0.1:${port}/`;
@@ -648,6 +660,80 @@ async function main() {
       barLost.join('; '));
     check(fitErrors.length === 0, 'no page/console errors during the drill fit check',
       fitErrors.join('\n  '));
+
+    // ---------- /demo cannot touch a real user's progress ----------
+    // The demo ships sample progress so the screens aren't empty, and it
+    // lives on the same origin as the app - which means it shares
+    // localStorage with it. If it ever wrote the real keys, one click on a
+    // demo link would overwrite the saved work of anyone already using the
+    // app, with no way back (there is no server copy). This is the check
+    // that stops that: a real user's progress is laid down first, the demo
+    // is opened in the same browser profile, and every byte of the real
+    // progress has to still be there afterwards.
+    check(demoHtml.length > 0, 'demo/index.html was built', 'run python3 app/build_app.py');
+    if (demoHtml) {
+      const demoPage = await context.newPage();
+      const demoErrors = [];
+      demoPage.on('pageerror', (e) => demoErrors.push('pageerror: ' + e.message));
+      demoPage.on('console', (m) => { if (m.type() === 'error') demoErrors.push('console error: ' + m.text()); });
+
+      const realPack = DATA.packs[2].id;
+      const realGrades = JSON.stringify({ 'probe-1': 'got', 'probe-2': 'stuck' });
+      const realDone = JSON.stringify({ [DATA.packs[0].id]: true, [DATA.packs[1].id]: true });
+
+      await demoPage.goto(url, { waitUntil: 'load' });
+      await demoPage.waitForSelector('.packcard');
+      await demoPage.evaluate(([pk, g, d]) => {
+        localStorage.clear();
+        localStorage.setItem('lt-review:' + pk, g);
+        localStorage.setItem('lt-review-done', d);
+      }, [realPack, realGrades, realDone]);
+
+      await demoPage.goto(url + 'demo/', { waitUntil: 'load' });
+      await demoPage.waitForSelector('.packcard');
+
+      const after = await demoPage.evaluate(([pk]) => ({
+        realGrades: localStorage.getItem('lt-review:' + pk),
+        realDone: localStorage.getItem('lt-review-done'),
+        strayRealKeys: Object.keys(localStorage)
+          .filter((k) => (k.indexOf('lt-review:') === 0 || k === 'lt-review-done')),
+        demoKeys: Object.keys(localStorage).filter((k) => k.indexOf('lt-review-demo') === 0).length,
+        ticked: document.querySelectorAll('.donebtn.on').length,
+        partials: [...document.querySelectorAll('.packcard .prog')]
+          .filter((e) => e.textContent.indexOf('/') !== -1).length,
+        banner: !!document.querySelector('.demo-note'),
+      }), [realPack]);
+
+      check(after.realGrades === realGrades,
+        'opening /demo leaves a real per-drill progress blob byte-for-byte intact',
+        `was ${realGrades}, now ${after.realGrades}`);
+      check(after.realDone === realDone,
+        'opening /demo leaves the real done-map byte-for-byte intact',
+        `was ${realDone}, now ${after.realDone}`);
+      check(after.strayRealKeys.length === 2,
+        '/demo creates no new real-app storage keys at all',
+        'real keys present after the demo ran: ' + after.strayRealKeys.join(', '));
+      check(after.demoKeys > 10, '/demo writes its sample progress to its own keys',
+        `only ${after.demoKeys} demo keys`);
+      check(after.ticked > 10 && after.partials >= 1,
+        '/demo opens on a worked-in track list, not an empty one',
+        `${after.ticked} done, ${after.partials} part-way`);
+      check(after.banner, '/demo says plainly that it is a demo', 'no .demo-note on the page');
+
+      // And the reverse: the real app must not display, or inherit, the demo's progress.
+      await demoPage.goto(url, { waitUntil: 'load' });
+      await demoPage.waitForSelector('.packcard');
+      const real = await demoPage.evaluate(() => ({
+        ticked: document.querySelectorAll('.donebtn.on').length,
+        banner: !!document.querySelector('.demo-note'),
+      }));
+      check(real.ticked === 2, 'the real app still shows only the real progress',
+        `${real.ticked} tracks ticked, expected 2`);
+      check(!real.banner, 'the demo banner never appears in the real build');
+      check(demoErrors.length === 0, 'no page/console errors from the demo build',
+        demoErrors.join('\n  '));
+      await demoPage.close();
+    }
   } catch (e) {
     fail('smoke test threw: ' + (e && e.stack || e));
   } finally {

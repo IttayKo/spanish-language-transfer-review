@@ -98,7 +98,7 @@ else
 fi
 
 # ---------------------------------------------------------------------------
-section "Build reproducibility: does app/build_app.py currently produce the committed index.html and sw.js?"
+section "Build reproducibility: does app/build_app.py currently produce the committed index.html, demo/index.html and sw.js?"
 BUILD_TMP_DIR="$(mktemp -d)"
 cp -r app "$BUILD_TMP_DIR/app"
 mkdir -p "$BUILD_TMP_DIR/data"
@@ -120,6 +120,17 @@ if diff -q "$BUILD_TMP_DIR/sw.js" sw.js >/dev/null 2>&1; then
 else
   sw_diff="$(diff "$BUILD_TMP_DIR/sw.js" sw.js 2>&1 | wc -l)"
   msg="sw.js differs from a fresh build ($sw_diff diff lines) - run 'python3 app/build_app.py' and commit the result. A stale sw.js/index.html pair can pin real users to an old build, so this matters as much as index.html itself."
+  if [ "${LT_STRICT_BUILD:-0}" = "1" ]; then
+    bad "$msg"
+  else
+    soft "$msg"
+  fi
+fi
+if diff -q "$BUILD_TMP_DIR/demo/index.html" demo/index.html >/dev/null 2>&1; then
+  ok "demo/index.html is exactly what app/build_app.py produces (the same build with DEMO on)"
+else
+  demo_diff="$(diff "$BUILD_TMP_DIR/demo/index.html" demo/index.html 2>&1 | wc -l)"
+  msg="demo/index.html differs from a fresh build ($demo_diff diff lines) - run 'python3 app/build_app.py' and commit the result. The demo is not a separate app to maintain by hand: it is index.html with one flag flipped, and hand-editing it is how it silently stops matching what the app actually does."
   if [ "${LT_STRICT_BUILD:-0}" = "1" ]; then
     bad "$msg"
   else
