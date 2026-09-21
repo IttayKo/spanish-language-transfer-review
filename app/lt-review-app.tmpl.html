@@ -163,25 +163,41 @@ main{flex:1;padding:0 0 calc(var(--bar) + var(--s5))}
 .empty{color:var(--ink-3);text-align:center;padding:var(--s6) 0;font-size:.9375rem}
 
 /* ---- drill ---- */
-.filterbanner{font-size:.8125rem;line-height:1.5;color:var(--ink-3);padding:0 0 var(--s3);display:flex;align-items:baseline;flex-wrap:wrap;gap:4px var(--s2)}
+/* The drill is the one screen that behaves like an app, not a document: the
+   running head, the stage and the action bar are laid out inside exactly
+   one viewport and the page itself never scrolls - no reaching, no losing
+   the prompt off the top mid-thought. Nothing is clipped or truncated to
+   get there. Every size below is in em off .stage, so fitDrill() can
+   squeeze the whole composition - whitespace first (--gap), then type
+   (--fit) - and have the spacing stay in proportion to the text instead of
+   detaching from it. The action bar sits outside .stage on purpose: the
+   two buttons you actually press keep their full size at every squeeze. */
+html.lock, body.lock{height:100dvh;overflow:hidden;overscroll-behavior:none}
+body.lock .app{height:100dvh;overflow:hidden}
+main.view-drill{flex:1;min-height:0;display:flex;flex-direction:column;padding-bottom:0;overflow:hidden}
+/* Top-anchored at every size. Slack collects below the content, above the
+   bar, so revealing the answer adds to the bottom and never lifts the
+   prompt the learner is still reading. */
+.stage{flex:1;min-height:0;overflow:hidden;font-size:calc(1rem * var(--fit,1))}
+
+.filterbanner{font-size:.8125em;line-height:1.5;color:var(--ink-3);padding:0 0 calc(1em * var(--gap,1));display:flex;align-items:baseline;flex-wrap:wrap;gap:.25em .625em}
 .filterbanner b{color:var(--ink);font-weight:600}
 .filterbanner .link-inline{
   appearance:none;border:0;background:none;padding:0;margin:0;min-height:auto;
   color:var(--mark);font-size:inherit;cursor:pointer;text-decoration:underline;text-underline-offset:2px;
 }
-.cue{font-size:.8125rem;color:var(--ink-3);padding:var(--s5) 0 var(--s4)}
-.cue .flag{color:var(--flag)}
-/* Phone: the drill stage is top-anchored on purpose - the actions live where
-   the thumb is, the empty space below is just page (risk #2 in PLAN.md 4.6).
-   Desktop: optically centre it with auto margins (never clips tall content,
-   unlike justify-content:center). */
-main.view-drill{flex:1;display:flex;flex-direction:column}
-@media (min-width:680px){
-  main.view-drill::before{content:"";margin-top:auto}
-  main.view-drill::after{content:"";margin-bottom:auto}
+.cue{
+  font-size:.8125em;color:var(--ink-3);padding:calc(1.75em * var(--gap,1)) 0 calc(1.375em * var(--gap,1));
+  display:flex;align-items:baseline;gap:1em;
 }
-.eng{font-size:1.75rem;line-height:1.34;letter-spacing:-.017em;max-width:22ch;font-weight:400}
-.eng .reg{display:block;margin-top:12px;color:var(--ink-3);font-size:.875rem;letter-spacing:0;font-weight:400}
+.cue .flag{color:var(--flag)}
+.undo{
+  appearance:none;border:0;background:none;padding:0;margin-left:auto;
+  color:var(--ink-3);font-size:1em;cursor:pointer;white-space:nowrap;
+  text-decoration:underline;text-underline-offset:3px;text-decoration-color:var(--rule-2);
+}
+.eng{font-size:1.75em;line-height:1.34;letter-spacing:-.017em;max-width:22ch;font-weight:400}
+.eng .reg{display:block;margin-top:.45em;color:var(--ink-3);font-size:.5em;letter-spacing:0;font-weight:400}
 /* Revealing the answer must not recompose this: same size, same position,
    same max-width - only the colour dims a shade, so nothing the learner was
    reading jumps. See .answer below for where the "event" of revealing
@@ -191,39 +207,85 @@ main.view-drill{flex:1;display:flex;flex-direction:column}
 
 /* One group, not a boxed-off strip: a separator BETWEEN hints, never a
    leading rule above the first one or a trailing one under the last. */
-.steps{margin:var(--s5) 0 0;padding:0;list-style:none}
-.steps li{padding:14px 0;border-top:1px solid var(--rule);font-size:.9375rem;line-height:1.6;color:var(--ink-2)}
+.steps{margin:calc(1.75em * var(--gap,1)) 0 0;padding:0;list-style:none}
+.steps li{padding:calc(.9em * var(--gap,1)) 0;border-top:1px solid var(--rule);font-size:.9375em;line-height:1.6;color:var(--ink-2)}
 .steps li:first-child{padding-top:0;border-top:0}
 .steps .step-why{color:var(--ink-2)}
 .steps .sep{color:var(--ink-3)}
 .steps .es{color:var(--ink);font-weight:600}
-.undo{
-  appearance:none;border:0;background:none;padding:14px 0;min-height:48px;
-  color:var(--ink-3);font-size:.8125rem;cursor:pointer;display:block;margin-left:auto;
-  text-decoration:underline;text-underline-offset:3px;text-decoration-color:var(--rule-2);
-}
-.undo-row{text-align:right}
-
 /* The reveal is a new block that arrives BELOW the prompt and any hints
    already on screen - it never displaces them. Its own weight (scale, plus
    the hairline that opens it) is what makes it read as an event, not motion. */
-.answer{margin:var(--s6) 0 0;padding-top:var(--s4);border-top:1px solid var(--rule-2)}
-.answer .es{font-size:1.9375rem;line-height:1.3;letter-spacing:-.018em;margin:0;font-weight:400;color:var(--ink)}
-.answer .note{font-size:.9375rem;line-height:1.6;color:var(--ink-2);margin:var(--s4) 0 0;max-width:38ch}
-.answer .flag{font-size:.8125rem;color:var(--flag);margin-top:var(--s3);display:block}
+.answer{margin:calc(2em * var(--gap,1)) 0 0;padding-top:calc(1.125em * var(--gap,1));border-top:1px solid var(--rule-2)}
+.answer .es{font-size:1.9375em;line-height:1.3;letter-spacing:-.018em;margin:0;font-weight:400;color:var(--ink)}
+.answer .note{font-size:.9375em;line-height:1.6;color:var(--ink-2);margin:calc(1em * var(--gap,1)) 0 0;max-width:38ch}
+.answer .flag{font-size:.8125em;color:var(--flag);margin-top:calc(.75em * var(--gap,1));display:block}
 .answer .speak{
   appearance:none;background:transparent;border:1.5px solid var(--edge);border-radius:3px;color:var(--ink);
-  padding:12px 16px;min-height:48px;margin:var(--s4) 0 0;font-size:.875rem;cursor:pointer;font-family:var(--sans);
-  display:inline-flex;align-items:center;gap:8px;
+  padding:.7em 1em;min-height:2.6em;margin:calc(1em * var(--gap,1)) 0 0;font-size:.875em;cursor:pointer;font-family:var(--sans);
+  display:inline-flex;align-items:center;gap:.5em;
 }
-.why{margin:var(--s5) 0 0;border-top:1px solid var(--rule)}
-.why .why-lbl{font-size:.8125rem;color:var(--ink-3);padding-top:var(--s3)}
+/* The rule cross-references are a wrapped line of links, not a stack of
+   full-width rows: on the answered screen they're the last thing anyone
+   needs and the first thing that should stop costing a third of the
+   viewport. */
+.why{
+  margin:calc(1.5em * var(--gap,1)) 0 0;padding-top:calc(.875em * var(--gap,1));border-top:1px solid var(--rule);
+  display:flex;flex-wrap:wrap;align-items:baseline;gap:0 1em;
+}
+.why .why-lbl{font-size:.8125em;color:var(--ink-3)}
 .rulelink{
-  appearance:none;border:0;background:none;width:100%;text-align:left;font-family:var(--sans);
-  padding:14px 0;min-height:48px;color:var(--mark);font-size:.9375rem;line-height:1.5;cursor:pointer;
-  border-bottom:1px solid var(--rule);display:flex;gap:var(--s2);align-items:baseline;
+  appearance:none;border:0;background:none;text-align:left;font-family:var(--sans);
+  padding:.35em 0;color:var(--mark);font-size:.9375em;line-height:1.5;cursor:pointer;
+  text-decoration:underline;text-underline-offset:3px;text-decoration-color:var(--rule-2);
 }
-.rulelink .arrow{margin-left:auto;color:var(--ink-3)}
+.why-all{display:none}
+
+/* A short screen is not a small screen. On a phone held sideways (or a
+   laptop with the browser chrome eating half the window) there is plenty of
+   width and almost no height, so the drill stops being one column: the
+   prompt, the answer and the rule links take the left, the hint stack takes
+   the right, and the whole thing fits without giving up a single size. The
+   reading order is unchanged for screen readers and for keyboard focus -
+   only the placement moves. */
+@media (min-width:700px) and (max-height:620px){
+  body.lock .app{max-width:58rem}
+  .stage{
+    display:grid;column-gap:2.5em;align-content:start;
+    grid-template-columns:1fr 1fr;
+    grid-template-areas:"cue cue" "eng steps" "answer steps" "why steps";
+  }
+  .stage > .filterbanner{grid-column:1 / -1}
+  .stage > .cue{grid-area:cue}
+  .stage > .eng{grid-area:eng;max-width:100%}
+  .stage > .steps{grid-area:steps;margin-top:0}
+  .stage > .answer{grid-area:answer}
+  .stage > .why{grid-area:why}
+}
+/* Short screens, sideways or not: the chrome above and below the drill is
+   the cheapest height in the app to buy back, and buying it back is how the
+   type keeps its size. */
+@media (max-height:620px){
+  .topline{padding-top:2px}
+  .tabs button{padding:10px 0 9px;min-height:40px}
+  .bar{padding:var(--s2) 0 calc(var(--s2) + env(safe-area-inset-bottom))}
+  .bar .btn, .bar.grade button{min-height:46px;padding-top:12px;padding-bottom:12px}
+}
+
+/* Shedding: the last two rungs of fitDrill()'s ladder, for a screen so
+   short that squeezing space and type has run out before the drill fits.
+   Nothing here loses a word of the answer, the prompt or the hints - only
+   the periphery goes: four wrapped rule titles become one "4 rules" link
+   to the same place, the teacher's aside folds away, the hint rows give up
+   their breathing room and the speak button its label. A dense drill on a
+   320px phone is the only thing that reaches rung two. */
+.stage.shed1 .why .rulelink:not(.why-all){display:none}
+.stage.shed1 .why-all{display:inline}
+.stage.shed1 .answer .note{display:none}
+.stage.shed2 .steps li{padding:calc(.4em * var(--gap,1)) 0;line-height:1.45}
+.stage.shed2 .eng{line-height:1.22}
+.stage.shed2 .answer .speak{padding:.45em .7em;min-height:0}
+.stage.shed2 .speak-lbl{display:none}
 
 /* ---- rules (per-track tab) - hairline rows, same discipline as the glossary ---- */
 .rules-list{margin:0}
@@ -1143,14 +1205,92 @@ function promptMarkup(text, answered){
   return '<div class="eng'+(answered?' answered':'')+'">'+esc(body)+regHtml+'</div>';
 }
 
-function undoLineHtml(extraStyle){
+// "Take that back" rides on the cue line rather than owning a row of its
+// own: it is periphery, the cue is periphery, and on a drill screen that
+// must fit one viewport a whole row spent on an undo link is a row the
+// hints do not get.
+function undoLineHtml(){
   if(!canGoBack()) return '';
-  return '<div class="undo-row"'+(extraStyle?' style="'+extraStyle+'"':'')+'><button class="undo" id="undoBtn">Take that back</button></div>';
+  return '<button class="undo" id="undoBtn">Take that back</button>';
+}
+
+// The drill stage is the box fitDrill() measures: one viewport minus the
+// running head and the action bar. Everything a drill renders lives in it.
+function stage(inner){ return '<div class="stage" id="stage">' + inner + '</div>'; }
+
+// Zero scroll inside a drill, without clipping or truncating anything.
+// Squeeze whitespace first and only then type, because a screen with tight
+// spacing still reads as the same screen while shrunken text does not - and
+// stop at floors that keep the hint rows legible. The action bar lives
+// outside .stage, so the two buttons that get pressed the most never shrink
+// at all. A drill that still overflowed at the floor would be a content
+// bug (one far longer than anything in the dataset), not a layout one.
+// One ordered ladder of concessions, walked from the top until the drill
+// fits: whitespace, then type, then - only on a screen short enough that
+// neither was enough - the periphery (see .stage.shed1/.shed2 in the CSS).
+// The order is the order a designer would give things up in: a screen with
+// tight spacing still reads as the same screen, shrunken type reads as a
+// worse one, and losing a rule title to a link that goes to the same place
+// costs least of all. It stops at the first rung that fits, so the common
+// drill on a normal phone never leaves rung one.
+var FIT_LADDER = [
+  {gap:1},    {gap:.88}, {gap:.76}, {gap:.64}, {gap:.52}, {gap:.42},
+  {gap:.42, fit:.94}, {gap:.42, fit:.88}, {gap:.42, fit:.82},
+  {gap:.42, fit:.82, shed:1},
+  {gap:.42, fit:.76, shed:1},
+  {gap:.42, fit:.76, shed:2},
+  {gap:.42, fit:.70, shed:2},
+  {gap:.36, fit:.64, shed:2}
+];
+function clearFit(){
+  var root = document.documentElement;
+  root.style.removeProperty('--gap');
+  root.style.removeProperty('--fit');
+}
+function applyRung(st, rung){
+  var root = document.documentElement;
+  root.style.setProperty('--gap', rung.gap);
+  root.style.setProperty('--fit', rung.fit || 1);
+  st.classList.toggle('shed1', rung.shed >= 1);
+  st.classList.toggle('shed2', rung.shed >= 2);
+}
+// Binary search from where we were, not a walk down the rungs. Every rung
+// is smaller than the one above it, so "does it fit" is monotonic along the
+// ladder. Each test costs a forced reflow and this runs on every hint and
+// every reveal, so the cost is worth cutting: walking all thirteen rungs
+// put the worst tap at ~170ms on a six-times-throttled CPU, which is a
+// thumb noticing. Probing last time's rung first collapses the common
+// cases - a drill that fits at full size, or one more hint on a drill that
+// was already squeezed - to a single test, and bounds the search to one
+// side of it otherwise.
+var lastRung = 0;
+function fitDrill(){
+  var st = document.getElementById('stage');
+  if(!st){ clearFit(); return; }
+  var top = FIT_LADDER.length - 1;
+  function fits(){ return st.scrollHeight <= st.clientHeight + 1; }
+  if(lastRung > top) lastRung = top;
+  applyRung(st, FIT_LADDER[lastRung]);
+  var lo, hi, best, applied = lastRung;
+  if(fits()){
+    if(lastRung === 0) return;          // already as generous as it goes
+    lo = 0; hi = lastRung - 1; best = lastRung;
+  } else {
+    lo = lastRung + 1; hi = top; best = top;
+  }
+  while(lo <= hi){
+    var mid = (lo + hi) >> 1;
+    applyRung(st, FIT_LADDER[mid]); applied = mid;
+    if(fits()){ best = mid; hi = mid - 1; }
+    else { lo = mid + 1; }
+  }
+  if(applied !== best) applyRung(st, FIT_LADDER[best]);
+  lastRung = best;
 }
 
 function renderDrill(){
   var d = queue[idx];
-  if(!d){ return '<div class="empty">Nothing to practice here.</div>'; }
+  if(!d){ return stage('<div class="empty">Nothing to practice here.</div>'); }
 
   // Extensions are sentences we wrote from the track's rules, not lines the
   // teacher said - mark that provenance quietly in the cue line. Track
@@ -1158,7 +1298,7 @@ function renderDrill(){
   // as both .flag (the design's "statement about reliability" ink) and the
   // long-standing .src-tag hook.
   var srcTagHtml = d.source === 'extension' ? ' &middot; <span class="flag src-tag">not from the recording</span>' : '';
-  var cueHtml = '<div class="cue">Track '+d.track+' &middot; drill '+(idx+1)+' of '+queue.length+srcTagHtml+'</div>';
+  var cueHtml = '<div class="cue"><span>Track '+d.track+' &middot; drill '+(idx+1)+' of '+queue.length+srcTagHtml+'</span>'+undoLineHtml()+'</div>';
 
   var bannerHtml = ruleFilterId ? ('<div class="filterbanner">Only drills for: <b>'+esc(ruleFilterLabel)+'</b> ' +
     '<button class="link-inline" id="clearRuleFilterBtn">Show all</button></div>') : '';
@@ -1172,7 +1312,7 @@ function renderDrill(){
   }
 
   if(!answerShown){
-    return cueHtml + bannerHtml + promptMarkup(d.prompt, false) + stepsHtml + undoLineHtml();
+    return stage(cueHtml + bannerHtml + promptMarkup(d.prompt, false) + stepsHtml);
   }
 
   // Revealing the answer adds a new block BELOW what's already on screen -
@@ -1184,16 +1324,22 @@ function renderDrill(){
   var noteHtml = d.note ? '<div class="note">'+esc(d.note)+'</div>' : '';
   var whyHtml = "";
   if(d.rules && d.rules.length){
-    whyHtml = '<div class="why"><div class="why-lbl">Why</div>' + d.rules.map(function(rid){
+    // Both shapes are always in the DOM and CSS picks one, so fitDrill()
+    // can collapse four wrapped rule titles - a third of a small phone's
+    // screen - into a single link without a second render pass. The link
+    // lands on the same Rules tab the titles would have.
+    whyHtml = '<div class="why"><span class="why-lbl">Why</span>' + d.rules.map(function(rid){
       var r = ruleById(rid);
       var lbl = r ? r.title : rid;
-      return '<button class="rulelink" data-ruleid="'+esc(rid)+'">'+esc(lbl)+'<span class="arrow">&rarr;</span></button>';
-    }).join('') + '</div>';
+      return '<button class="rulelink" data-ruleid="'+esc(rid)+'">'+esc(lbl)+'</button>';
+    }).join('') +
+    (d.rules.length > 1 ? '<button class="rulelink why-all" data-ruleid="'+esc(d.rules[0])+'">'+d.rules.length+' rules</button>' : '') +
+    '</div>';
   }
-  return cueHtml + bannerHtml + promptMarkup(d.prompt, true) + stepsHtml +
+  return stage(cueHtml + bannerHtml + promptMarkup(d.prompt, true) + stepsHtml +
     '<div class="answer" aria-live="polite"><div class="es" lang="es">'+esc(d.answer)+'</div>' + noteHtml + flagHtml +
-    '<button class="speak" id="speakBtn">'+SPK_ICON+' Hear it</button></div>' +
-    whyHtml + undoLineHtml('margin-top:var(--s4)');
+    '<button class="speak" id="speakBtn">'+SPK_ICON+'<span class="speak-lbl">Hear it</span></button></div>' +
+    whyHtml);
 }
 
 function drillBarHtml(){
@@ -1318,8 +1464,15 @@ function render(){
   if(view==="drill") html += drillBarHtml();
   else if(view==="summary") html += summaryBarHtml();
 
+  // A drill is an app screen, not a document: lock the page to the viewport
+  // so it cannot scroll, then fit the stage into what is left.
+  var locked = (view==="drill");
+  document.documentElement.classList.toggle('lock', locked);
+  document.body.classList.toggle('lock', locked);
+
   app.innerHTML = html;
   wire();
+  if(locked) fitDrill(); else clearFit();
 
   if(sameView){ window.scrollTo(0, prevScrollY); }
   lastRenderedView = view;
@@ -1482,6 +1635,19 @@ window.addEventListener('popstate', function(ev){
   if(view==="glossary" || view==="backup"){ suppressPush = true; enterHome(); suppressPush = false; return; }
   if(pack){ suppressPush = true; goBack(); suppressPush = false; }
 });
+
+// Rotating the phone, a desktop window resize, or the mobile URL bar
+// sliding away all change the box the stage has to fit into. Refit rather
+// than re-render: a re-render would rebuild the DOM and lose nothing
+// visible, but refitting is the whole of the work and costs one reflow.
+var refitPending = false;
+function scheduleRefit(){
+  if(refitPending || view!=="drill") return;
+  refitPending = true;
+  requestAnimationFrame(function(){ refitPending = false; if(view==="drill") fitDrill(); });
+}
+window.addEventListener('resize', scheduleRefit);
+window.addEventListener('orientationchange', scheduleRefit);
 
 render();
 })();

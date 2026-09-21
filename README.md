@@ -53,6 +53,23 @@ rejected before anything is written.
   sliding in. Full rationale and the computed contrast ratios behind every
   colour token live in the redesign notes this shipped from; ask if you need
   them.
+- **A drill never scrolls.** The track list and the glossary are documents
+  and scroll like documents; a drill is an app screen, so the running head,
+  the drill itself and the two grade buttons live inside exactly one
+  viewport and the page is locked against scrolling while you're in one.
+  Nothing is clipped or truncated to achieve that: `fitDrill()` measures the
+  stage after every reveal and gives things up in a fixed order until it
+  fits — whitespace first (a tight screen still reads as the same screen),
+  then type, and only on a screen short enough that neither was enough, the
+  periphery (four wrapped rule titles collapse to one "4 rules" link to the
+  same place, the teacher's aside folds away, the hint rows give up their
+  breathing room). The grade buttons sit outside the measured area, so the
+  two things you press most never shrink at all. Held sideways, where there
+  is width and no height, the drill becomes two columns — prompt and answer
+  left, hints right — rather than shrinking. On a normal phone almost every
+  drill sits at full size; only the densest reach down the ladder at all.
+  **Anything added to the drill screen has to earn its height**, and
+  `npm test` says so if it didn't.
 - Track 1 (the course's own orientation) has no Spanish in it at all, so its
   pack is rules only, no drills — an honest empty array beats a manufactured
   quiz the transcript doesn't support. Track 90 (dialect variation) is the
@@ -109,7 +126,11 @@ across the dataset, a static check that the template still reads/writes the
 `lt-review:<packId>` / `lt-review-done` localStorage keys real users'
 progress lives in (there's no server copy — silently renaming either wipes
 everyone) and that `app/sw.tmpl.js` still has its kill switch and
-network-first document fetch, confirms `index.html` and `sw.js` are exactly
+network-first document fetch, takes the six densest drills in the dataset
+across seven viewports (a 320x568 phone through to a phone held sideways)
+with every hint revealed and the answer shown and asserts that the drill
+screen neither scrolls nor clips and keeps the grade buttons in view,
+confirms `index.html` and `sw.js` are exactly
 what `build_app.py` currently produces (reported as a warning while other
 passes are still mid-flight, promotable to a hard failure with
 `LT_STRICT_BUILD=1`), and drives the app in headless Chromium through opening

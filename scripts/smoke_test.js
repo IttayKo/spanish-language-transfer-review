@@ -553,6 +553,101 @@ async function main() {
 
     check(pageErrors.length === 0, 'no page/console errors during the recap pool check',
       pageErrors.join('\n  '));
+
+    // ---------- the drill screen never scrolls, and never clips either ----------
+    // The drill view is meant to behave like an app screen, not a document:
+    // head, stage and action bar inside exactly one viewport, at every size,
+    // for every drill. fitDrill() delivers that by squeezing space, then type,
+    // then the periphery - so the two ways it can be wrong are letting the
+    // page scroll (the guarantee broken) and running out of ladder and
+    // clipping the answer off the bottom (much worse than scrolling). Both
+    // are asserted here, on the densest drills in the dataset, in the tallest
+    // state a drill can reach: every hint out AND the answer shown.
+    const VIEWPORTS = [
+      { name: 'small phone', width: 320, height: 568 },
+      { name: 'phone', width: 375, height: 667 },
+      { name: 'tall phone', width: 390, height: 844 },
+      { name: 'tablet', width: 768, height: 1024 },
+      { name: 'desktop', width: 1280, height: 800 },
+      { name: 'short desktop', width: 1280, height: 600 },
+      { name: 'phone, sideways', width: 844, height: 390 },
+    ];
+    const DENSE_N = 6;
+    const density = (d) => (d.steps || []).length * 40 + d.prompt.length +
+      d.answer.length * 1.4 + (d.rules || []).length * 30 + (d.note ? d.note.length : 0);
+    const densest = [];
+    for (const p of DATA.packs) {
+      (p.drills || []).forEach((d, i) => densest.push({ packId: p.id, pack: p, idx: i, id: d.id, score: density(d) }));
+    }
+    densest.sort((a, b) => b.score - a.score);
+    const denseTargets = densest.slice(0, DENSE_N);
+    check(denseTargets.length === DENSE_N,
+      `found ${DENSE_N} drills to probe the drill screen's fit with`,
+      `only got ${denseTargets.length}`);
+
+    const fitPage = await context.newPage();
+    const fitErrors = [];
+    fitPage.on('pageerror', (e) => fitErrors.push('pageerror: ' + e.message));
+    fitPage.on('console', (m) => { if (m.type() === 'error') fitErrors.push('console error: ' + m.text()); });
+
+    const scrolled = [], clipped = [], barLost = [], wrongDrill = [];
+    for (const vp of VIEWPORTS) {
+      await fitPage.setViewportSize({ width: vp.width, height: vp.height });
+      for (const t of denseTargets) {
+        // Resume lands on the first ungraded drill, so grading everything
+        // before the target opens the pack straight onto it.
+        const seed = {};
+        for (let i = 0; i < t.idx; i++) seed[t.pack.drills[i].id] = 'got';
+        await fitPage.goto(url, { waitUntil: 'load' });
+        await fitPage.evaluate(([k, v]) => { localStorage.clear(); localStorage.setItem(k, v); },
+          ['lt-review:' + t.packId, JSON.stringify(seed)]);
+        await fitPage.reload({ waitUntil: 'load' });
+        await fitPage.waitForSelector('.packcard');
+        await fitPage.evaluate((id) => document.getElementById('pack-' + id).querySelector('.rowbtn').click(), t.packId);
+        await fitPage.waitForSelector('#stage');
+
+        const cue = await fitPage.$eval('.cue span', (el) => el.textContent).catch(() => '');
+        if (!cue.includes(`drill ${t.idx + 1} `)) { wrongDrill.push(`${vp.name}/${t.id}: ${cue}`); continue; }
+
+        for (;;) { const n = await fitPage.$('#nextStepBtn'); if (!n) break; await n.click(); }
+        await fitPage.click('#revealBtn');
+        await fitPage.waitForSelector('.answer');
+
+        const m = await fitPage.evaluate(() => {
+          const st = document.getElementById('stage');
+          const de = document.documentElement;
+          const bar = document.getElementById('bar').getBoundingClientRect();
+          return {
+            clip: st.scrollHeight - st.clientHeight,
+            docScroll: de.scrollHeight - de.clientHeight,
+            bodyScroll: document.body.scrollHeight - document.body.clientHeight,
+            barBottom: bar.bottom, barTop: bar.top, vh: window.innerHeight,
+            answerBottom: document.querySelector('.answer .es').getBoundingClientRect().bottom,
+          };
+        });
+        if (m.clip > 1) clipped.push(`${vp.name}/${t.id} by ${Math.round(m.clip)}px`);
+        if (m.docScroll > 1 || m.bodyScroll > 1) scrolled.push(`${vp.name}/${t.id}`);
+        if (m.barBottom > m.vh + 1) barLost.push(`${vp.name}/${t.id}: bar below the fold`);
+        if (m.answerBottom > m.barTop + 1) barLost.push(`${vp.name}/${t.id}: answer runs under the bar`);
+
+        await fitPage.mouse.wheel(0, 800);
+        const y = await fitPage.evaluate(() => window.scrollY);
+        if (y > 0) scrolled.push(`${vp.name}/${t.id}: wheel moved the page to ${y}`);
+      }
+    }
+    await fitPage.close();
+
+    check(wrongDrill.length === 0, 'the fit probe reached every drill it meant to measure', wrongDrill.join('; '));
+    check(scrolled.length === 0,
+      `the drill screen never scrolls (${DENSE_N} densest drills x ${VIEWPORTS.length} viewports, fully revealed)`,
+      scrolled.join('; '));
+    check(clipped.length === 0,
+      'and fits without clipping - the fit ladder never runs out on a real drill',
+      clipped.join('; '));
+    check(barLost.length === 0, 'the grade buttons stay in view, with the answer clear of them',
+      barLost.join('; '));
+    check(fitErrors.length === 0, 'no page/console errors during the drill fit check',
+      fitErrors.join('\n  '));
   } catch (e) {
     fail('smoke test threw: ' + (e && e.stack || e));
   } finally {
