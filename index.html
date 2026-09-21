@@ -416,14 +416,25 @@ function on(id, fn, type){ var el = document.getElementById(id); if(el) el.addEv
 function onAll(sel, fn, type){ var els = document.querySelectorAll(sel); for(var i=0;i<els.length;i++){ (function(el){ el.addEventListener(type||'click', function(ev){ fn(ev, el); }); })(els[i]); } }
 
 /* ---------- pack progress (for home list) ---------- */
+// Bug fix: this used to return null (= "no progress at all") unless at
+// least one drill was graded "got" - so a track the learner had only ever
+// answered "Not yet" on looked exactly like an untouched one, both for the
+// home-row badge and for recap eligibility (see recapCandidatePacks below).
+// That's backwards: any grade at all, "got" or "stuck", is progress: the
+// gate is now "has anything been graded", while the badge itself keeps
+// showing correct-count/total (success stays unmarked by design).
 function packProgress(p){
   var raw; try{ raw = localStorage.getItem("lt-review:" + p.id); }catch(e){ raw = null; }
   if(!raw) return null;
   var g; try{ g = JSON.parse(raw); }catch(e){ return null; }
-  var done = 0, total = p.drills.length;
-  for(var i=0;i<p.drills.length;i++){ if(g[p.drills[i].id]==="got") done++; }
-  if(done===0) return null;
-  return {done:done, total:total};
+  var got = 0, graded = 0, total = p.drills.length;
+  for(var i=0;i<p.drills.length;i++){
+    var st = g[p.drills[i].id];
+    if(st === "got"){ got++; graded++; }
+    else if(st === "stuck"){ graded++; }
+  }
+  if(graded===0) return null;
+  return {done:got, total:total};
 }
 
 /* ---------- "mark as done" tracking (separate from per-drill grades) ---------- */
@@ -637,8 +648,10 @@ function shuffled(arr){
   return a;
 }
 
-// Tracks worth recapping: anything with at least one graded drill, whether
-// or not it's been marked done.
+// Tracks worth recapping: anything the learner has covered - marked done
+// via the home-screen circle (which grades nothing on its own), or with at
+// least one graded drill (via the packProgress fix above, "graded" means
+// either "got" or "stuck", not just "got").
 function recapCandidatePacks(){
   var doneMap = getDoneMap();
   return orderedPacks().filter(function(p){ return doneMap[p.id] || packProgress(p); });
@@ -646,19 +659,42 @@ function recapCandidatePacks(){
 
 function hasRecapMaterial(){ return recapCandidatePacks().length > 0; }
 
+function trackGrades(p){
+  try{ return JSON.parse(localStorage.getItem("lt-review:"+p.id) || "{}"); }catch(e){ return {}; }
+}
+
+// Bug fix: this used to pool ONLY drills that already carried a "got" or
+// "stuck" grade. A track marked done via the home-screen circle grades
+// nothing, so a learner who works through tracks and ticks them off (rather
+// than grading every drill) ended up with a covered-tracks list full of
+// tracks and an almost-empty grade pool - recap then drew from that
+// handful forever, however high RECAP_SIZE was set.
+//
+// Fixed pool = every drill in every covered track, ranked:
+//   1. marked "stuck"   - most worth another pass
+//   2. ungraded         - covered but never actually tested; as worth
+//                         recapping as a stuck one, arguably more so than
+//                         one already proven "got"
+//   3. marked "got"     - already demonstrated, lowest priority filler
+// Each tier is shuffled before slicing so which drills fill RECAP_SIZE (and
+// their order) differs run to run, and the final pick is reshuffled so the
+// tiers don't run in blocks.
 function startRecap(){
   var packs = recapCandidatePacks();
-  var stuckPool = [], gotPool = [];
+  var stuckPool = [], freshPool = [], gotPool = [];
   packs.forEach(function(p){
-    var g; try{ g = JSON.parse(localStorage.getItem("lt-review:"+p.id) || "{}"); }catch(e){ g = {}; }
+    var g = trackGrades(p);
     p.drills.forEach(function(d){
-      if(g[d.id]==="stuck") stuckPool.push(d);
-      else if(g[d.id]==="got") gotPool.push(d);
+      var st = g[d.id];
+      if(st==="stuck") stuckPool.push(d);
+      else if(st==="got") gotPool.push(d);
+      else freshPool.push(d);
     });
   });
-  // Weight toward the ones marked "stuck" first, fill the rest at random
-  // from everything else already covered, then mix the order.
   var picked = shuffled(stuckPool).slice(0, RECAP_SIZE);
+  if(picked.length < RECAP_SIZE){
+    picked = picked.concat(shuffled(freshPool).slice(0, RECAP_SIZE - picked.length));
+  }
   if(picked.length < RECAP_SIZE){
     picked = picked.concat(shuffled(gotPool).slice(0, RECAP_SIZE - picked.length));
   }

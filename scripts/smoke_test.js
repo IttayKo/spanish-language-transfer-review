@@ -22,6 +22,8 @@ const http = require('http');
 
 const REPO_ROOT = path.join(__dirname, '..');
 const INDEX_PATH = process.env.LT_INDEX_HTML || path.join(REPO_ROOT, 'index.html');
+// Must match RECAP_SIZE in app/lt-review-app.tmpl.html.
+const RECAP_SIZE_EXPECTED = 12;
 
 function fail(msg) {
   console.error('FAIL: ' + msg);
@@ -466,6 +468,90 @@ async function main() {
     serverState.html = html; // restore for anything else that reads the server after this
 
     check(pageErrors.length === 0, 'no page/console errors during the PWA/offline checks',
+      pageErrors.join('\n  '));
+
+    // ==================== recap pool correctness ====================
+    // Regression coverage for the recap bug: "seems like it's always the
+    // same and only 2 drills." Root cause was that startRecap() pooled ONLY
+    // drills that already carried a grade, while marking a track done via
+    // the home-screen circle grades nothing - so a learner with several
+    // tracks ticked done and a couple of graded drills got a pool of ~2
+    // forever. Seed exactly that shape and confirm recap now draws from
+    // every drill in every covered track, actually delivers RECAP_SIZE when
+    // that many exist, and that two consecutive recaps genuinely differ.
+    await page.evaluate(() => { try { localStorage.clear(); } catch (e) { /* ignore */ } });
+
+    const recapPacks = DATA.packs.filter((p) => (p.drills || []).length >= 3).slice(0, 6);
+    check(recapPacks.length === 6, 'found 6 packs with >=3 drills to seed a realistic recap scenario');
+    const totalCoveredDrills = recapPacks.reduce((n, p) => n + p.drills.length, 0);
+    check(totalCoveredDrills > RECAP_SIZE_EXPECTED,
+      'the seeded covered tracks hold more drills than RECAP_SIZE, so a full recap is actually exercised',
+      `got ${totalCoveredDrills} drills across ${recapPacks.length} tracks`);
+
+    await page.evaluate(({ doneIds, gradedPackId, gradedDrillIds }) => {
+      const doneMap = {};
+      doneIds.forEach((id) => { doneMap[id] = true; });
+      localStorage.setItem('lt-review-done', JSON.stringify(doneMap));
+      // Exactly two graded drills total, inside one of the done tracks -
+      // this is the "5 tracks done, 2 graded drills" shape that used to
+      // starve recap down to "drill 1 of 2, always the same two".
+      const grades = {};
+      grades[gradedDrillIds[0]] = 'got';
+      grades[gradedDrillIds[1]] = 'stuck';
+      localStorage.setItem('lt-review:' + gradedPackId, JSON.stringify(grades));
+    }, {
+      doneIds: recapPacks.map((p) => p.id),
+      gradedPackId: recapPacks[0].id,
+      gradedDrillIds: [recapPacks[0].drills[0].id, recapPacks[0].drills[1].id],
+    });
+
+    await page.reload({ waitUntil: 'load' });
+    await page.waitForSelector('.packcard');
+    await page.waitForSelector('#recapBtn');
+    await page.click('#recapBtn');
+    await page.waitForSelector('.cue');
+
+    // Steps through an entire recap session (revealing and grading "got" on
+    // every drill, which only ever touches the isolated "lt-review:recap"
+    // key, never the seeded per-track grades) and returns an ordered list
+    // identifying each drill served, so two runs can be compared.
+    const stepThroughRecap = async () => {
+      const seq = [];
+      for (;;) {
+        const cueText = (await page.textContent('.cue')).trim();
+        const m = /drill \d+ of (\d+)/.exec(cueText);
+        if (!m) break;
+        const total = parseInt(m[1], 10);
+        await page.click('#revealBtn');
+        const answerText = (await page.textContent('.answer .es')).trim();
+        seq.push(cueText.replace(/drill \d+ of \d+/, 'drill') + '|' + answerText);
+        await page.click('#gotBtn');
+        if (seq.length >= total) break;
+        await page.waitForSelector('.cue');
+      }
+      return seq;
+    };
+
+    const recapSeq1 = await stepThroughRecap();
+    check(recapSeq1.length > 2 * 3,
+      'recap returns substantially more drills than the 2 explicitly graded ones',
+      `got ${recapSeq1.length} drills from a pool with only 2 graded`);
+    check(recapSeq1.length === Math.min(RECAP_SIZE_EXPECTED, totalCoveredDrills),
+      'recap actually delivers RECAP_SIZE drills when that many are available across covered tracks',
+      `got ${recapSeq1.length}, expected ${Math.min(RECAP_SIZE_EXPECTED, totalCoveredDrills)}`);
+
+    await page.waitForSelector('#newRecapBtn');
+    await page.click('#newRecapBtn');
+    await page.waitForSelector('.cue');
+    const recapSeq2 = await stepThroughRecap();
+    check(recapSeq2.length === Math.min(RECAP_SIZE_EXPECTED, totalCoveredDrills),
+      'a second recap also delivers RECAP_SIZE drills',
+      `got ${recapSeq2.length}`);
+    check(JSON.stringify(recapSeq1) !== JSON.stringify(recapSeq2),
+      'two consecutive recaps are not identical',
+      'both recap runs produced the exact same sequence of drills in the exact same order');
+
+    check(pageErrors.length === 0, 'no page/console errors during the recap pool check',
       pageErrors.join('\n  '));
   } catch (e) {
     fail('smoke test threw: ' + (e && e.stack || e));
