@@ -130,7 +130,6 @@ main{flex:1;padding:0 0 calc(var(--bar) + var(--s5))}
    gets the full width of the line. */
 .packcard .rowend{flex:none;display:flex;flex-direction:column;align-items:center;width:3.25rem;padding-top:10px}
 .packcard .prog{font-size:.75rem;color:var(--ink-3);line-height:1.3;text-align:center;margin-top:-6px}
-.packcard .prog.part{color:var(--ink);font-weight:600;font-size:.875rem}
 .donebtn{
   appearance:none;border:0;background:none;width:44px;height:44px;flex:none;
   padding:0;cursor:pointer;display:flex;align-items:center;justify-content:center;
@@ -940,7 +939,7 @@ function packCardHtml(p){
   } else if(done){
     progHtml = '';
   } else if(prog){
-    progHtml = '<span class="prog part">'+prog.done+'/'+prog.total+'</span>';
+    progHtml = '<span class="prog">'+prog.done+'/'+prog.total+'</span>';
   } else {
     // Bare count: it sits under the done circle, where "how much is in here"
     // needs no unit spelled out, and the description gets the whole line.
