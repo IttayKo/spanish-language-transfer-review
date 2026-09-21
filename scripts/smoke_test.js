@@ -490,10 +490,22 @@ async function main() {
     // tracks ticked done and a couple of graded drills got a pool of ~2
     // forever. Seed exactly that shape and confirm recap now draws from
     // every drill in every covered track, actually delivers RECAP_SIZE when
-    // that many exist, and that two consecutive recaps genuinely differ.
+    // that many exist, spans several of those tracks, and that two
+    // consecutive recaps genuinely differ.
+    //
+    // The pool used to be ranked as well - stuck first, then ungraded, then
+    // already-got - and that ranking is gone; a recap is a plain mixed
+    // sample across the covered tracks now. Nothing here ever asserted the
+    // ranking (it asserts breadth, size and variation, which all still
+    // hold), so this section needed no unpicking when it went.
     await page.evaluate(() => { try { localStorage.clear(); } catch (e) { /* ignore */ } });
 
-    const recapPacks = DATA.packs.filter((p) => (p.drills || []).length >= 3).slice(0, 6);
+    // Bounded above as well as below: with every seeded track holding fewer
+    // drills than RECAP_SIZE, a recap that came from a single track is
+    // impossible, so the span check below cannot flake on an unlucky shuffle.
+    const recapPacks = DATA.packs
+      .filter((p) => (p.drills || []).length >= 3 && p.drills.length < RECAP_SIZE_EXPECTED)
+      .slice(0, 6);
     check(recapPacks.length === 6, 'found 6 packs with >=3 drills to seed a realistic recap scenario');
     const totalCoveredDrills = recapPacks.reduce((n, p) => n + p.drills.length, 0);
     check(totalCoveredDrills > RECAP_SIZE_EXPECTED,
@@ -551,6 +563,17 @@ async function main() {
     check(recapSeq1.length === Math.min(RECAP_SIZE_EXPECTED, totalCoveredDrills),
       'recap actually delivers RECAP_SIZE drills when that many are available across covered tracks',
       `got ${recapSeq1.length}, expected ${Math.min(RECAP_SIZE_EXPECTED, totalCoveredDrills)}`);
+
+    // The point of a recap: it ranges over the tracks you've covered rather
+    // than re-testing one of them. No seeded track holds RECAP_SIZE drills,
+    // so a recap drawn from the flat pool has to touch at least this many.
+    const biggestSeeded = Math.max(...recapPacks.map((p) => p.drills.length));
+    const minTracksSpanned = Math.ceil(RECAP_SIZE_EXPECTED / biggestSeeded);
+    const tracksIn = (seq) => new Set(seq.map((e) => (/Track (\d+)/.exec(e) || [])[1]).filter(Boolean));
+    const spanned = tracksIn(recapSeq1);
+    check(minTracksSpanned >= 2 && spanned.size >= minTracksSpanned,
+      'a recap ranges across several of the covered tracks, not just one',
+      `spanned ${spanned.size} track(s) (${[...spanned].join(', ')}), needed at least ${minTracksSpanned}`);
 
     await page.waitForSelector('#newRecapBtn');
     await page.click('#newRecapBtn');

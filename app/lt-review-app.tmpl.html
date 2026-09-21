@@ -852,46 +852,22 @@ function recapCandidatePacks(){
 
 function hasRecapMaterial(){ return recapCandidatePacks().length > 0; }
 
-function trackGrades(p){
-  try{ return JSON.parse(localStorage.getItem(KEY_PREFIX+p.id) || "{}"); }catch(e){ return {}; }
-}
-
-// Bug fix: this used to pool ONLY drills that already carried a "got" or
-// "stuck" grade. A track marked done via the home-screen circle grades
-// nothing, so a learner who works through tracks and ticks them off (rather
-// than grading every drill) ended up with a covered-tracks list full of
-// tracks and an almost-empty grade pool - recap then drew from that
-// handful forever, however high RECAP_SIZE was set.
-//
-// Fixed pool = every drill in every covered track, ranked:
-//   1. marked "stuck"   - most worth another pass
-//   2. ungraded         - covered but never actually tested; as worth
-//                         recapping as a stuck one, arguably more so than
-//                         one already proven "got"
-//   3. marked "got"     - already demonstrated, lowest priority filler
-// Each tier is shuffled before slicing so which drills fill RECAP_SIZE (and
-// their order) differs run to run, and the final pick is reshuffled so the
-// tiers don't run in blocks.
+// A plain mixed sample: every drill from every covered track, shuffled,
+// take RECAP_SIZE. It used to rank the pool - stuck first, then ungraded,
+// then already-got - and that ranking is gone on purpose. Two reasons. It
+// never worked as advertised: a recap's own grades are saved against the
+// synthetic "recap" pack (see the pack this function builds below), never
+// against the track a drill came from, so getting stuck on something in a
+// recap never once made it more likely to come back. And a recap across a
+// stretch of the course is a more honest test than one that keeps handing
+// back the same weak spots - you find out what actually stuck, rather than
+// being quizzed on a list you already know you are bad at.
 function startRecap(){
-  var packs = recapCandidatePacks();
-  var stuckPool = [], freshPool = [], gotPool = [];
-  packs.forEach(function(p){
-    var g = trackGrades(p);
-    p.drills.forEach(function(d){
-      var st = g[d.id];
-      if(st==="stuck") stuckPool.push(d);
-      else if(st==="got") gotPool.push(d);
-      else freshPool.push(d);
-    });
+  var pool = [];
+  recapCandidatePacks().forEach(function(p){
+    pool = pool.concat(p.drills);
   });
-  var picked = shuffled(stuckPool).slice(0, RECAP_SIZE);
-  if(picked.length < RECAP_SIZE){
-    picked = picked.concat(shuffled(freshPool).slice(0, RECAP_SIZE - picked.length));
-  }
-  if(picked.length < RECAP_SIZE){
-    picked = picked.concat(shuffled(gotPool).slice(0, RECAP_SIZE - picked.length));
-  }
-  picked = shuffled(picked);
+  var picked = shuffled(pool).slice(0, RECAP_SIZE);
 
   var ruleIds = {};
   picked.forEach(function(d){ (d.rules||[]).forEach(function(rid){ ruleIds[rid]=true; }); });
@@ -1226,7 +1202,7 @@ function renderHome(){
   if(hasRecapMaterial()){
     var n = recapCandidatePacks().length;
     html += '<div class="linkrow"><button class="link" id="recapBtn">Recap practice' +
-      '<span class="sub">A mixed check across the '+n+' track'+(n===1?'':'s')+' you\'ve covered, weighted toward what you got stuck on.</span></button></div>';
+      '<span class="sub">A mixed handful of drills from across the '+n+' track'+(n===1?'':'s')+' you\'ve covered.</span></button></div>';
   }
 
   html += '<div class="linkrow"><button class="link" id="glossaryBtn">All rules' +

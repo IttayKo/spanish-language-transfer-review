@@ -10,8 +10,8 @@ sits next to the audio course; it doesn't replace it.
 
 - **Tracks** (1–90, in 12 thematic sections) — open one, work its drills in
   the order the teacher gave them, reveal scaffolding a piece at a time, mark
-  it done. Reopening resumes where you left off. "Recap practice" mixes
-  drills from tracks you've covered, weighted toward what you got stuck on.
+  it done. Reopening resumes where you left off. "Recap practice" is a plain
+  mixed handful of drills from across the tracks you've covered.
 - **All rules** — the same ~250 grammar mechanisms in one searchable list,
   for when you remember the rule but not the track. The course teaches a
   mechanism once and keeps coming back to it, and each returning track gets
