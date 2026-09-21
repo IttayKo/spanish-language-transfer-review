@@ -338,11 +338,6 @@ main.view-drill{flex:1;min-height:0;display:flex;flex-direction:column;padding-b
 }
 .bar.stack{flex-direction:column;align-items:stretch;gap:var(--s3)}
 .bar.stack .row2{display:flex;align-items:center;gap:var(--s4)}
-/* Two real, competing actions on one row (Continue / Finish) - same idea as
-   .bar.choice on the drill screen, scoped under .stack instead of being a
-   .bar of its own so it doesn't duplicate the outer bar's border/background. */
-.bar.stack .row1{display:flex;gap:var(--s3)}
-.bar.stack .row1 .btn{flex:1}
 .btn{
   appearance:none;border:0;background:var(--ink);color:var(--paper);
   border-radius:3px;padding:15px 20px;min-height:52px;font-size:.9375rem;font-weight:600;cursor:pointer;font-family:var(--sans);
@@ -1598,9 +1593,14 @@ function summaryBarHtml(){
     // not a text link buried in the row underneath: leaving here is exactly
     // as legitimate a thing to do as moving on to the next track, and it's
     // the one shape of this screen where the two genuinely compete.
+    // Stacked, not side by side: "Continue to Track 77" needs about 240px to
+    // stay on one line and a phone's bar has ~350px for both buttons, so any
+    // split wraps it - and a primary action whose label breaks across lines,
+    // orphaning the track number, reads worse than one that simply sits above
+    // its alternative. .bar.stack already lays its children out this way.
     return barStack(
-      '<div class="row1"><button class="btn" id="continueBtn">Continue to Track '+next.tracks[0]+'</button>' +
-      '<button class="btn secondary" id="finishBtn">Finish</button></div>' +
+      '<button class="btn" id="continueBtn">Continue to Track '+next.tracks[0]+'</button>' +
+      '<button class="btn secondary" id="finishBtn">Finish</button>' +
       '<div class="row2">'+redoHtml+restartHtml+'</div>');
   }
   return barStack('<button class="btn" id="topHomeBtn2">Finish &mdash; course complete!</button>' +
