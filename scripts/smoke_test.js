@@ -566,6 +566,95 @@ async function main() {
     check(pageErrors.length === 0, 'no page/console errors during the recap pool check',
       pageErrors.join('\n  '));
 
+    // ---------- the two backs on a drill screen do different things ----------
+    // "Take that back" used to mean three things depending on what happened
+    // to be on screen - fold the answer, fold a hint, or jump to the previous
+    // drill - so pressing it one time too many silently left the drill you
+    // were working on. It only unwinds reveals now, and stepping back through
+    // the queue is its own control. The assertion that matters is the one
+    // that broke: however many times the undo is pressed, it cannot leave
+    // the drill.
+    const navPack = DATA.packs.find((p) => (p.drills || []).length > 4 &&
+      ((p.drills[1] || {}).steps || []).length >= 3);
+    check(!!navPack, 'found a track to test the drill back controls on');
+    if (navPack) {
+      const navPage = await context.newPage();
+      const navErrors = [];
+      navPage.on('pageerror', (e) => navErrors.push('pageerror: ' + e.message));
+      navPage.on('console', (m) => { if (m.type() === 'error') navErrors.push('console error: ' + m.text()); });
+      await navPage.goto(url, { waitUntil: 'load' });
+      await navPage.waitForSelector('.packcard');
+      await navPage.evaluate(() => localStorage.clear());
+      await navPage.reload({ waitUntil: 'load' });
+      await navPage.waitForSelector('.packcard');
+      await navPage.evaluate((id) => document.getElementById('pack-' + id).querySelector('.rowbtn').click(), navPack.id);
+      await navPage.waitForSelector('#stage');
+
+      const navState = () => navPage.evaluate(() => ({
+        cue: document.querySelector('.cuetext').textContent.replace(/\s+/g, ' ').trim(),
+        prev: !!document.getElementById('prevDrillBtn'),
+        undo: !!document.getElementById('undoBtn'),
+        hints: document.querySelectorAll('.steps li').length,
+        answer: !!document.querySelector('.answer'),
+      }));
+
+      let ns = await navState();
+      check(!ns.prev && !ns.undo,
+        'drill 1 offers neither back control before anything has happened',
+        `prev=${ns.prev} undo=${ns.undo}`);
+
+      await navPage.click('#revealBtn');
+      await navPage.click('#gotBtn');
+      ns = await navState();
+      check(ns.prev && ns.cue.indexOf('drill 2 of') !== -1,
+        'the drill back control appears once there is a drill to go back to', ns.cue);
+      check(!ns.undo, 'and the undo does not, until something has been revealed');
+
+      for (;;) { const n = await navPage.$('#nextStepBtn'); if (!n) break; await n.click(); }
+      await navPage.click('#revealBtn');
+      await navPage.waitForSelector('.answer');
+      const revealed = (await navState()).hints;
+      check(revealed >= 3, 'every hint is out and the answer is shown', `${revealed} hints`);
+
+      await navPage.click('#undoBtn');
+      ns = await navState();
+      check(!ns.answer && ns.hints === revealed,
+        'the first undo folds only the answer away, leaving the hints alone',
+        `answer=${ns.answer} hints=${ns.hints}/${revealed}`);
+
+      let escaped = false;
+      for (let i = 0; i < revealed + 5; i++) {
+        const u = await navPage.$('#undoBtn');
+        if (!u) break;
+        await u.click();
+        if ((await navState()).cue.indexOf('drill 2 of') === -1) { escaped = true; break; }
+      }
+      ns = await navState();
+      check(!escaped && ns.cue.indexOf('drill 2 of') !== -1,
+        'the undo cannot leave the drill, however many times it is pressed', ns.cue);
+      check(ns.hints === 0 && !ns.answer && !ns.undo,
+        'it unwinds one reveal at a time down to nothing, then goes away',
+        `hints=${ns.hints} answer=${ns.answer} undo=${ns.undo}`);
+      check(ns.prev, 'and the drill back control is untouched by any of it');
+
+      await navPage.click('#nextStepBtn');
+      await navPage.click('#prevDrillBtn');
+      ns = await navState();
+      check(ns.cue.indexOf('drill 1 of') !== -1, 'the drill back control steps back one drill', ns.cue);
+      check(ns.hints === 0 && !ns.answer,
+        'and reopens it fresh, so going back is another go rather than a replay',
+        `hints=${ns.hints} answer=${ns.answer}`);
+      check(!ns.prev, 'and it is gone again on the first drill');
+
+      const headBack = await navPage.$eval('#topHomeBtn', (el) => el.textContent.replace(/\s+/g, ' ').trim());
+      check(headBack.indexOf('Tracks') !== -1,
+        'the header back says where it goes, so it cannot be read as the drill back',
+        `header back reads "${headBack}"`);
+      check(navErrors.length === 0, 'no page/console errors from the drill back controls',
+        navErrors.join('\n  '));
+      await navPage.close();
+    }
+
     // ---------- the drill screen never scrolls, and never clips either ----------
     // The drill view is meant to behave like an app screen, not a document:
     // head, stage and action bar inside exactly one viewport, at every size,
@@ -618,7 +707,7 @@ async function main() {
         await fitPage.evaluate((id) => document.getElementById('pack-' + id).querySelector('.rowbtn').click(), t.packId);
         await fitPage.waitForSelector('#stage');
 
-        const cue = await fitPage.$eval('.cue span', (el) => el.textContent).catch(() => '');
+        const cue = await fitPage.$eval('.cuetext', (el) => el.textContent).catch(() => '');
         if (!cue.includes(`drill ${t.idx + 1} `)) { wrongDrill.push(`${vp.name}/${t.id}: ${cue}`); continue; }
 
         for (;;) { const n = await fitPage.$('#nextStepBtn'); if (!n) break; await n.click(); }

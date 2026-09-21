@@ -198,9 +198,16 @@ main.view-drill{flex:1;min-height:0;display:flex;flex-direction:column;padding-b
 }
 .cue{
   font-size:.8125em;color:var(--ink-3);padding:calc(1.75em * var(--gap,1)) 0 calc(1.375em * var(--gap,1));
-  display:flex;align-items:baseline;gap:1em;
+  display:flex;align-items:baseline;flex-wrap:wrap;gap:.25em 1em;
 }
 .cue .flag{color:var(--flag)}
+/* Left end of the cue row, ink-coloured with an arrow: navigation. The
+   undo at the other end is grey and wordy: not navigation. */
+.cueback{
+  appearance:none;border:0;background:none;padding:0;margin:0;font-family:var(--sans);
+  color:var(--ink-2);font-size:1em;line-height:inherit;cursor:pointer;white-space:nowrap;
+}
+.cueback:hover{color:var(--ink)}
 .undo{
   appearance:none;border:0;background:none;padding:0;margin-left:auto;
   color:var(--ink-3);font-size:1em;cursor:pointer;white-space:nowrap;
@@ -296,6 +303,12 @@ main.view-drill{flex:1;min-height:0;display:flex;flex-direction:column;padding-b
 .stage.shed2 .eng{line-height:1.22}
 .stage.shed2 .answer .speak{padding:.45em .7em;min-height:0}
 .stage.shed2 .speak-lbl{display:none}
+/* Sitting right beside the drill counter, the arrow alone still reads as
+   "back one of these" - and dropping the words keeps the cue on one line on
+   a narrow phone, which is worth more than the words are. "Take that back"
+   keeps its wording at every rung: it is the one of the two whose meaning
+   an arrow could not carry. */
+.stage.shed2 .cueback-lbl{display:none}
 
 /* ---- rules (per-track tab) - hairline rows, same discipline as the glossary ---- */
 .rules-list{margin:0}
@@ -974,19 +987,36 @@ function startSession(opts){
   view = queue.length ? (idx < queue.length ? "drill" : "summary") : "rules";
 }
 
-function canGoBack(){
-  if(view==="drill"){ return answerShown || revealedSteps>0 || idx>0; }
-  if(view==="rules" || view==="summary"){ return true; }
-  return false;
+// "Take that back" used to mean three different things depending on what
+// happened to be on screen: fold the answer away, fold a hint away, or jump
+// to the previous drill. The third one is the odd one out - it leaves the
+// drill you were working on, which is not what taking back a reveal means -
+// and you could reach it by pressing the same link one time too many. It
+// only undoes reveals now, within the drill you are on, and stepping back
+// through the queue has its own button (see prevDrill).
+function canUndoReveal(){ return view==="drill" && (answerShown || revealedSteps>0); }
+
+function undoReveal(){
+  if(answerShown){ answerShown=false; render(); return; }
+  if(revealedSteps>0){ revealedSteps--; render(); }
 }
 
+function canPrevDrill(){ return view==="drill" && idx>0; }
+
+// Back a drill starts it fresh rather than restoring the hints you had out:
+// you are going back to have another go at it, and a drill that reopens
+// with its answer already showing is not another go.
+function prevDrill(){
+  if(!canPrevDrill()) return;
+  idx--; answerShown=false; revealedSteps=0; usedHint=false;
+  render();
+}
+
+// Browser/system back. The drill view is a single history entry (see the
+// pushState in render()), so backing out of it leaves the track rather than
+// rewinding inside it.
 function goBack(){
-  if(view==="drill"){
-    if(answerShown){ answerShown=false; render(); return; }
-    if(revealedSteps>0){ revealedSteps--; render(); return; }
-    if(idx>0){ idx--; answerShown=false; revealedSteps=0; render(); return; }
-    enterHome(); return;
-  }
+  if(view==="drill"){ enterHome(); return; }
   if(view==="rules"){
     if(queue.length){ view = "drill"; render(); return; }
     enterHome(); return;
@@ -1037,7 +1067,7 @@ function homeHeadHtml(){
 function packHeadHtml(){
   var drillsActive = (view==="drill" || view==="summary");
   return '<header class="topline">'+
-    '<button class="back" id="topHomeBtn" aria-label="Back to the track list">&larr;</button>'+
+    '<button class="back" id="topHomeBtn">&larr; Tracks</button>'+
     '<nav class="tabs">'+
     '<button id="tabDrills" aria-selected="'+drillsActive+'">Drills ('+pack.drills.length+')</button>'+
     '<button id="tabRules" aria-selected="'+(view==="rules")+'">Rules ('+pack.rules.length+')</button>'+
@@ -1281,12 +1311,19 @@ function promptMarkup(text, answered){
   return '<div class="eng'+(answered?' answered':'')+'">'+esc(body)+regHtml+'</div>';
 }
 
-// "Take that back" rides on the cue line rather than owning a row of its
-// own: it is periphery, the cue is periphery, and on a drill screen that
-// must fit one viewport a whole row spent on an undo link is a row the
-// hints do not get.
+// Both of the drill's small navigations ride on the cue line rather than
+// owning rows of their own: they are periphery, the cue is periphery, and
+// on a drill screen that must fit one viewport a row spent on a link is a
+// row the hints do not get. They sit at opposite ends because they are
+// easy to confuse and must not read as a pair: "back a drill" leaves this
+// drill, "take that back" stays in it.
+function prevDrillHtml(){
+  if(!canPrevDrill()) return '';
+  return '<button class="cueback" id="prevDrillBtn" aria-label="Back to the previous drill">&larr;<span class="cueback-lbl"> Back a drill</span></button>';
+}
+
 function undoLineHtml(){
-  if(!canGoBack()) return '';
+  if(!canUndoReveal()) return '';
   return '<button class="undo" id="undoBtn">Take that back</button>';
 }
 
@@ -1316,7 +1353,12 @@ var FIT_LADDER = [
   {gap:.42, fit:.76, shed:1},
   {gap:.42, fit:.76, shed:2},
   {gap:.42, fit:.70, shed:2},
-  {gap:.36, fit:.64, shed:2}
+  {gap:.36, fit:.64, shed:2},
+  // Headroom. Nothing in the dataset reaches this rung today - the densest
+  // drill on the smallest phone still in the wild stops one above it - and
+  // that is the point: a ladder whose last rung is in use has no margin for
+  // the next thing that gets added to the drill screen.
+  {gap:.30, fit:.60, shed:2}
 ];
 function clearFit(){
   var root = document.documentElement;
@@ -1374,7 +1416,7 @@ function renderDrill(){
   // as both .flag (the design's "statement about reliability" ink) and the
   // long-standing .src-tag hook.
   var srcTagHtml = d.source === 'extension' ? ' &middot; <span class="flag src-tag">not from the recording</span>' : '';
-  var cueHtml = '<div class="cue"><span>Track '+d.track+' &middot; drill '+(idx+1)+' of '+queue.length+srcTagHtml+'</span>'+undoLineHtml()+'</div>';
+  var cueHtml = '<div class="cue">'+prevDrillHtml()+'<span class="cuetext">Track '+d.track+' &middot; drill '+(idx+1)+' of '+queue.length+srcTagHtml+'</span>'+undoLineHtml()+'</div>';
 
   var bannerHtml = ruleFilterId ? ('<div class="filterbanner">Only drills for: <b>'+esc(ruleFilterLabel)+'</b> ' +
     '<button class="link-inline" id="clearRuleFilterBtn">Show all</button></div>') : '';
@@ -1636,7 +1678,8 @@ function wireOne(root){
 }
 
 function wire(){
-  on('undoBtn', goBack);
+  on('undoBtn', undoReveal);
+  on('prevDrillBtn', prevDrill);
   on('topHomeBtn', enterHome);
   on('glossaryBtn', function(){ enterGlossary(); });
   on('glossJumpBtn', function(){ enterGlossary(homeFilter); });

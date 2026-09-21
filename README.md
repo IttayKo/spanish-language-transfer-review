@@ -70,6 +70,15 @@ rejected before anything is written.
   drill sits at full size; only the densest reach down the ladder at all.
   **Anything added to the drill screen has to earn its height**, and
   `npm test` says so if it didn't.
+- **Three backs, three different things, and they say which.** `← Tracks`
+  at the top leaves the track. `← Back a drill`, on the cue line, steps back
+  through the queue and reopens that drill fresh — going back is another go,
+  not a replay. `Take that back`, at the other end of the same line, only
+  unwinds what you've revealed on the drill you're on: the answer first,
+  then the hints one at a time, and it disappears when there's nothing left.
+  It used to mean all three depending on what happened to be on screen, so
+  pressing it once too often silently left the drill you were working on;
+  `npm test` now presses it well past the end and fails if it moves.
 - Track 1 (the course's own orientation) has no Spanish in it at all, so its
   pack is rules only, no drills — an honest empty array beats a manufactured
   quiz the transcript doesn't support. Track 90 (dialect variation) is the
