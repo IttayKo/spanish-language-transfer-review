@@ -30,7 +30,11 @@
   --danger:var(--flag);
   --sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --bar:5rem;
-  --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s5:24px; --s6:32px; --s7:48px;
+  /* Bumped up a step from the original scale - the redesign's first review
+     round came back "way too tight" across every screen. Rows get taller,
+     gaps get wider; smaller type and raggeder wrapping are an accepted
+     trade for it (see the truncation removals below). */
+  --s1:4px; --s2:10px; --s3:16px; --s4:20px; --s5:32px; --s6:44px; --s7:64px;
 }
 *{box-sizing:border-box}
 html,body{margin:0;padding:0}
@@ -39,7 +43,7 @@ body{
   background:var(--paper);
   color:var(--ink);
   font-family:var(--sans);
-  font-size:16px;line-height:1.5;
+  font-size:16px;line-height:1.55;
   -webkit-font-smoothing:antialiased;
   font-variant-numeric:tabular-nums;
 }
@@ -48,79 +52,81 @@ button{font:inherit;color:inherit;font-variant-numeric:inherit}
 main{flex:1;padding:0 0 calc(var(--bar) + var(--s5))}
 
 /* ---- running head: home's only persistent chrome ---- */
-.head{display:flex;align-items:baseline;gap:var(--s3);padding:18px 0 0;min-height:44px}
+.head{display:flex;align-items:baseline;gap:var(--s3);padding:22px 0 0;min-height:48px}
 .head .name{font-size:.9375rem;font-weight:600;letter-spacing:-.003em}
 .head .stat{margin-left:auto;font-size:.8125rem;color:var(--ink-3);white-space:nowrap}
-.measure{height:3px;background:var(--rule-2);margin:10px 0 0;position:relative}
+.measure{height:3px;background:var(--rule-2);margin:12px 0 0;position:relative}
 .measure i{position:absolute;inset:0 auto 0 0;background:var(--ink)}
 
-/* ---- pack-view header: back arrow + Drills/Rules tabs, one 48px row ---- */
-.topline{display:flex;align-items:stretch;gap:var(--s4);border-bottom:1px solid var(--rule);padding-top:6px}
+/* ---- pack-view header: back arrow + Drills/Rules tabs, one row ---- */
+.topline{display:flex;align-items:stretch;gap:var(--s4);border-bottom:1px solid var(--rule);padding-top:8px}
 .tabs{display:flex;gap:var(--s5)}
 .tabs button{
-  appearance:none;border:0;background:none;padding:12px 0 11px;min-height:44px;
+  appearance:none;border:0;background:none;padding:14px 0 13px;min-height:48px;
   font-size:.9375rem;color:var(--ink-3);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;
 }
 .tabs button[aria-selected="true"]{color:var(--ink);font-weight:600;border-bottom-color:var(--ink)}
 
 /* ---- glossary / backup header: back link, title, one-line count ---- */
-.gh{padding:14px 0 0}
-.gh h1{font-size:1.25rem;font-weight:600;letter-spacing:-.014em;margin:6px 0 0}
-.gh .gcount{padding-top:4px}
+.gh{padding:18px 0 0}
+.gh h1{font-size:1.25rem;font-weight:600;letter-spacing:-.014em;margin:8px 0 0}
+.gh .gcount{padding-top:6px;line-height:1.5}
 
 .back{
-  appearance:none;border:0;background:none;padding:12px 0;margin:0;
-  min-height:44px;display:inline-flex;align-items:center;gap:6px;
+  appearance:none;border:0;background:none;padding:14px 0;margin:0;
+  min-height:48px;display:inline-flex;align-items:center;gap:6px;
   color:var(--mark);font-size:.875rem;cursor:pointer;
 }
 .topline .back{padding:0;min-width:44px;justify-content:flex-start;margin-right:-6px;font-size:1.0625rem}
 
 /* ---- search: a line to write on, not a box ---- */
-.searchrow{position:relative;margin:var(--s5) 0 var(--s3)}
+.searchrow{position:relative;margin:var(--s5) 0 var(--s4)}
 .searchrow input{
   width:100%;appearance:none;background:transparent;border:0;
   border-bottom:1.5px solid var(--edge);
-  padding:11px 0;font:inherit;font-size:.9375rem;color:var(--ink);min-height:44px;
+  padding:14px 0;font:inherit;font-size:.9375rem;color:var(--ink);min-height:48px;
 }
 .searchrow input::placeholder{color:var(--ink-3)}
 
 /* ---- the next thing to do ---- */
 .home-hero{padding:var(--s5) 0 var(--s5)}
-.home-hero .lbl{font-size:.8125rem;color:var(--ink-3);margin-bottom:6px}
-.home-hero .t{font-size:1.375rem;line-height:1.25;font-weight:600;letter-spacing:-.012em;margin-bottom:6px}
-.home-hero .b{font-size:.9375rem;color:var(--ink-2);line-height:1.5;max-width:34ch;margin:0}
-.linkrow{border-top:1px solid var(--rule);padding-top:var(--s2);margin-top:var(--s2)}
+.home-hero .lbl{font-size:.8125rem;color:var(--ink-3);margin-bottom:8px}
+.home-hero .t{font-size:1.375rem;line-height:1.3;font-weight:600;letter-spacing:-.012em;margin-bottom:8px}
+.home-hero .b{font-size:.9375rem;color:var(--ink-2);line-height:1.55;max-width:34ch;margin:0}
+.linkrow{border-top:1px solid var(--rule);padding-top:var(--s3);margin-top:var(--s3)}
 .linkrow:first-child{margin-top:0}
 .link{
-  appearance:none;border:0;background:none;padding:12px 0;min-height:44px;
+  appearance:none;border:0;background:none;padding:16px 0;min-height:48px;
   color:var(--mark);font-size:.9375rem;cursor:pointer;text-align:left;
   display:block;width:100%;
 }
-.link .sub{display:block;color:var(--ink-3);font-size:.8125rem;margin-top:2px;max-width:40ch;font-weight:400}
+.link .sub{display:block;color:var(--ink-3);font-size:.8125rem;line-height:1.5;margin-top:4px;max-width:40ch;font-weight:400}
 
 /* ---- sections & track rows: a table of contents, not cards ---- */
 .section-head{padding:var(--s6) 0 var(--s3);border-top:1.5px solid var(--rule-2);margin-top:var(--s5)}
 .section-head:first-of-type{margin-top:var(--s3);padding-top:var(--s2);border-top:0}
 .section-head .r{font-size:.8125rem;color:var(--ink-3)}
-.section-head h3{margin:2px 0 4px;font-size:1rem;font-weight:600;letter-spacing:-.008em}
-.section-head p{margin:0;font-size:.8125rem;line-height:1.5;color:var(--ink-3);max-width:44ch}
+.section-head h3{margin:4px 0 6px;font-size:1rem;font-weight:600;letter-spacing:-.008em}
+.section-head p{margin:0;font-size:.8125rem;line-height:1.55;color:var(--ink-3);max-width:44ch}
 
 .packlist{margin:0}
 .packcard{display:flex;align-items:flex-start;border-top:1px solid var(--rule)}
 .packlist .packcard:first-child{border-top:0}
 .rowbtn{
   appearance:none;border:0;background:none;flex:1;min-width:0;cursor:pointer;
-  display:flex;gap:var(--s3);padding:12px 0;min-height:44px;text-align:left;align-items:flex-start;
+  display:flex;gap:var(--s3);padding:16px 0;min-height:48px;text-align:left;align-items:flex-start;
   color:inherit;font:inherit;margin:0;
 }
-.packcard .num{width:1.75rem;flex:none;text-align:right;font-size:.9375rem;color:var(--ink-3);padding-top:1px;font-weight:400}
+.packcard .num{width:1.75rem;flex:none;text-align:right;font-size:.9375rem;color:var(--ink-3);padding-top:2px;font-weight:400}
 .packcard .meta{flex:1;min-width:0}
-.packcard .meta .sub{font-size:.9375rem;line-height:1.45;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;color:var(--ink)}
+/* No truncation: the full blurb wraps onto as many lines as it needs
+   (smaller type and ragged wraps are fine, hiding the description isn't). */
+.packcard .meta .sub{font-size:.9375rem;line-height:1.5;color:var(--ink)}
 .packcard.done .meta .sub{color:var(--ink-2)}
-.packcard .prog{flex:none;font-size:.75rem;color:var(--ink-3);padding-top:3px;white-space:nowrap}
+.packcard .prog{flex:none;font-size:.75rem;color:var(--ink-3);padding-top:4px;white-space:nowrap}
 .packcard .prog.part{color:var(--ink);font-weight:600;font-size:.9375rem}
 .donebtn{
-  appearance:none;border:0;background:none;width:44px;height:44px;flex:none;margin-left:var(--s2);
+  appearance:none;border:0;background:none;width:44px;height:48px;flex:none;margin-left:var(--s2);
   padding:0;cursor:pointer;display:flex;align-items:center;justify-content:center;
 }
 .donebtn-circle{
@@ -133,9 +139,9 @@ main{flex:1;padding:0 0 calc(var(--bar) + var(--s5))}
   border:solid var(--paper);border-width:0 1.5px 1.5px 0;transform:rotate(43deg);
 }
 
-.footlink{margin:var(--s7) 0 var(--s6);border-top:1px solid var(--rule);padding-top:var(--s2)}
+.footlink{margin:var(--s7) 0 var(--s6);border-top:1px solid var(--rule);padding-top:var(--s3)}
 .footlink button{
-  appearance:none;border:0;background:none;padding:12px 0;min-height:44px;
+  appearance:none;border:0;background:none;padding:16px 0;min-height:48px;
   color:var(--ink-3);font-size:.875rem;cursor:pointer;
   text-decoration:underline;text-underline-offset:3px;text-decoration-color:var(--rule-2);
 }
@@ -143,7 +149,7 @@ main{flex:1;padding:0 0 calc(var(--bar) + var(--s5))}
 /* the "N rules match in All rules" jump row - a plain link row, same
    discipline as .link above */
 .glossjump{
-  appearance:none;border:0;background:none;width:100%;padding:12px 0;min-height:44px;
+  appearance:none;border:0;background:none;width:100%;padding:16px 0;min-height:48px;
   color:var(--mark);font-size:.9375rem;cursor:pointer;text-align:left;
   border-top:1px solid var(--rule);display:flex;align-items:center;gap:var(--s2);
 }
@@ -152,7 +158,7 @@ main{flex:1;padding:0 0 calc(var(--bar) + var(--s5))}
 .empty{color:var(--ink-3);text-align:center;padding:var(--s6) 0;font-size:.9375rem}
 
 /* ---- drill ---- */
-.filterbanner{font-size:.8125rem;color:var(--ink-3);padding:0 0 var(--s3);display:flex;align-items:baseline;flex-wrap:wrap;gap:0 var(--s2)}
+.filterbanner{font-size:.8125rem;line-height:1.5;color:var(--ink-3);padding:0 0 var(--s3);display:flex;align-items:baseline;flex-wrap:wrap;gap:4px var(--s2)}
 .filterbanner b{color:var(--ink);font-weight:600}
 .filterbanner .link-inline{
   appearance:none;border:0;background:none;padding:0;margin:0;min-height:auto;
@@ -169,56 +175,66 @@ main.view-drill{flex:1;display:flex;flex-direction:column}
   main.view-drill::before{content:"";margin-top:auto}
   main.view-drill::after{content:"";margin-bottom:auto}
 }
-.eng{font-size:1.75rem;line-height:1.28;letter-spacing:-.017em;max-width:22ch;font-weight:400}
-.eng .reg{display:block;margin-top:10px;color:var(--ink-3);font-size:.875rem;letter-spacing:0;font-weight:400}
-.eng.past{font-size:.9375rem;line-height:1.45;color:var(--ink-2);max-width:36ch;letter-spacing:0}
-.eng.past .reg{display:inline;margin:0;font-size:inherit;color:var(--ink-3)}
+.eng{font-size:1.75rem;line-height:1.34;letter-spacing:-.017em;max-width:22ch;font-weight:400}
+.eng .reg{display:block;margin-top:12px;color:var(--ink-3);font-size:.875rem;letter-spacing:0;font-weight:400}
+/* Revealing the answer must not recompose this: same size, same position,
+   same max-width - only the colour dims a shade, so nothing the learner was
+   reading jumps. See .answer below for where the "event" of revealing
+   actually lives instead. */
+.eng.answered{color:var(--ink-2)}
+.eng.answered .reg{color:var(--ink-3)}
 
-.steps{margin:var(--s5) 0 0;padding:0;list-style:none;border-top:1px solid var(--rule)}
-.steps li{padding:10px 0;border-bottom:1px solid var(--rule);font-size:.9375rem;line-height:1.5;color:var(--ink-2)}
-.steps .why{color:var(--ink-2)}
+/* One group, not a boxed-off strip: a separator BETWEEN hints, never a
+   leading rule above the first one or a trailing one under the last. */
+.steps{margin:var(--s5) 0 0;padding:0;list-style:none}
+.steps li{padding:14px 0;border-top:1px solid var(--rule);font-size:.9375rem;line-height:1.6;color:var(--ink-2)}
+.steps li:first-child{padding-top:0;border-top:0}
+.steps .step-why{color:var(--ink-2)}
 .steps .sep{color:var(--ink-3)}
 .steps .es{color:var(--ink);font-weight:600}
 .undo{
-  appearance:none;border:0;background:none;padding:12px 0;min-height:44px;
+  appearance:none;border:0;background:none;padding:14px 0;min-height:48px;
   color:var(--ink-3);font-size:.8125rem;cursor:pointer;display:block;margin-left:auto;
   text-decoration:underline;text-underline-offset:3px;text-decoration-color:var(--rule-2);
 }
 .undo-row{text-align:right}
 
-.answer{margin:0}
-.answer .es{font-size:1.9375rem;line-height:1.25;letter-spacing:-.018em;margin:var(--s3) 0 0;font-weight:400;color:var(--ink)}
-.answer .note{font-size:.9375rem;line-height:1.55;color:var(--ink-2);margin:var(--s4) 0 0;max-width:38ch}
-.answer .flag{font-size:.8125rem;color:var(--flag);margin-top:var(--s2);display:block}
+/* The reveal is a new block that arrives BELOW the prompt and any hints
+   already on screen - it never displaces them. Its own weight (scale, plus
+   the hairline that opens it) is what makes it read as an event, not motion. */
+.answer{margin:var(--s6) 0 0;padding-top:var(--s4);border-top:1px solid var(--rule-2)}
+.answer .es{font-size:1.9375rem;line-height:1.3;letter-spacing:-.018em;margin:0;font-weight:400;color:var(--ink)}
+.answer .note{font-size:.9375rem;line-height:1.6;color:var(--ink-2);margin:var(--s4) 0 0;max-width:38ch}
+.answer .flag{font-size:.8125rem;color:var(--flag);margin-top:var(--s3);display:block}
 .answer .speak{
   appearance:none;background:transparent;border:1.5px solid var(--edge);border-radius:3px;color:var(--ink);
-  padding:10px 14px;min-height:44px;margin:var(--s4) 0 0;font-size:.875rem;cursor:pointer;font-family:var(--sans);
+  padding:12px 16px;min-height:48px;margin:var(--s4) 0 0;font-size:.875rem;cursor:pointer;font-family:var(--sans);
   display:inline-flex;align-items:center;gap:8px;
 }
 .why{margin:var(--s5) 0 0;border-top:1px solid var(--rule)}
 .why .why-lbl{font-size:.8125rem;color:var(--ink-3);padding-top:var(--s3)}
 .rulelink{
   appearance:none;border:0;background:none;width:100%;text-align:left;font-family:var(--sans);
-  padding:10px 0;min-height:44px;color:var(--mark);font-size:.9375rem;line-height:1.4;cursor:pointer;
+  padding:14px 0;min-height:48px;color:var(--mark);font-size:.9375rem;line-height:1.5;cursor:pointer;
   border-bottom:1px solid var(--rule);display:flex;gap:var(--s2);align-items:baseline;
 }
 .rulelink .arrow{margin-left:auto;color:var(--ink-3)}
 
 /* ---- rules (per-track tab) - hairline rows, same discipline as the glossary ---- */
 .rules-list{margin:0}
-.rule{border-bottom:1px solid var(--rule);padding:var(--s5) 0;scroll-margin-top:5rem}
+.rule{border-bottom:1px solid var(--rule);padding:var(--s6) 0;scroll-margin-top:5rem}
 .rules-list .rule:first-child{padding-top:var(--s3)}
 .rules-list .rule:last-child{border-bottom:none}
-.rule.highlight{background:var(--sunk);margin:0 -20px;padding:var(--s5) 20px;transition:background-color 1.6s ease 300ms}
-.rule h3{margin:0 0 var(--s2);font-size:.9375rem;font-weight:600}
-.rule p{margin:0 0 var(--s3);font-size:1rem;line-height:1.65;max-width:38ch;color:var(--ink)}
-.rule ul{margin:0 0 var(--s3);padding:0;list-style:none}
-.rule ul li{font-size:.9375rem;line-height:1.5;padding:4px 0 4px 14px;position:relative;color:var(--ink-2)}
-.rule ul li::before{content:"";position:absolute;left:0;top:.72em;width:6px;height:1px;background:var(--edge)}
+.rule.highlight{background:var(--sunk);margin:0 -20px;padding:var(--s6) 20px;transition:background-color 1.6s ease 300ms}
+.rule h3{margin:0 0 var(--s3);font-size:.9375rem;font-weight:600;line-height:1.4}
+.rule p{margin:0 0 var(--s4);font-size:1rem;line-height:1.65;max-width:38ch;color:var(--ink)}
+.rule ul{margin:0 0 var(--s4);padding:0;list-style:none}
+.rule ul li{font-size:.9375rem;line-height:1.6;padding:6px 0 6px 16px;position:relative;color:var(--ink-2)}
+.rule ul li::before{content:"";position:absolute;left:0;top:.85em;width:6px;height:1px;background:var(--edge)}
 .rule ul li .es{color:var(--ink)}
 .rule .src{font-size:.8125rem;color:var(--ink-3)}
 .rule .practicebtn, .gpractice{
-  appearance:none;border:0;background:none;padding:10px 0;min-height:44px;font-family:var(--sans);
+  appearance:none;border:0;background:none;padding:12px 0;min-height:48px;font-family:var(--sans);
   color:var(--mark);font-size:.875rem;cursor:pointer;display:block;text-align:left;
 }
 
@@ -229,68 +245,73 @@ main.view-drill{flex:1;display:flex;flex-direction:column}
   padding:var(--s3) 0 calc(var(--s3) + env(safe-area-inset-bottom));
   display:flex;align-items:center;gap:var(--s3);
 }
-.bar.stack{flex-direction:column;align-items:stretch;gap:var(--s2)}
+.bar.stack{flex-direction:column;align-items:stretch;gap:var(--s3)}
 .bar.stack .row2{display:flex;align-items:center;gap:var(--s4)}
 .btn{
   appearance:none;border:0;background:var(--ink);color:var(--paper);
-  border-radius:3px;padding:13px 18px;min-height:48px;font-size:.9375rem;font-weight:600;cursor:pointer;font-family:var(--sans);
+  border-radius:3px;padding:15px 20px;min-height:52px;font-size:.9375rem;font-weight:600;cursor:pointer;font-family:var(--sans);
   transition:background-color .15s ease,border-color .15s ease,opacity .15s ease;
 }
 .btn:active{opacity:.85}
+/* The reveal-answer action is a real, secondary-weight button: bordered
+   like .speak/.grade below, never link-styled - both choices on the hint
+   bar are buttons, just not competing filled buttons (see .bar.choice). */
+.btn.secondary{
+  background:transparent;color:var(--ink);border:1.5px solid var(--edge);
+}
 .btn.ghost{
-  background:transparent;color:var(--mark);border:0;font-weight:400;padding:13px 0;min-height:48px;
+  background:transparent;color:var(--mark);border:0;font-weight:400;padding:15px 0;min-height:52px;
   text-decoration:underline;text-underline-offset:3px;text-decoration-color:var(--rule-2);
 }
-.btn.small{padding:10px 0;min-height:44px;font-size:.875rem}
+.btn.small{padding:12px 0;min-height:48px;font-size:.875rem}
 .btn:disabled{opacity:.45;cursor:not-allowed}
-.bar .tell{
-  appearance:none;border:0;background:none;padding:13px 0;min-height:48px;margin-left:auto;
-  color:var(--ink-3);font-size:.875rem;cursor:pointer;font-family:var(--sans);
-  text-decoration:underline;text-underline-offset:3px;text-decoration-color:var(--rule-2);
-}
+.bar.choice{gap:var(--s2)}
+.bar.choice .btn{flex:1}
 .bar .textlink{
-  appearance:none;border:0;background:none;padding:13px 0;min-height:44px;
+  appearance:none;border:0;background:none;padding:15px 0;min-height:48px;
   color:var(--ink-3);font-size:.875rem;cursor:pointer;font-family:var(--sans);
   text-decoration:underline;text-underline-offset:3px;text-decoration-color:var(--rule-2);
 }
 .bar.grade{gap:var(--s2)}
 .bar.grade button{
   flex:1;appearance:none;background:transparent;border:1.5px solid var(--edge);color:var(--ink);
-  border-radius:3px;padding:13px 10px;min-height:48px;font-size:.9375rem;font-weight:600;cursor:pointer;font-family:var(--sans);
+  border-radius:3px;padding:15px 10px;min-height:52px;font-size:.9375rem;font-weight:600;cursor:pointer;font-family:var(--sans);
 }
 .bar.grade button.no{color:var(--flag)}
 
 /* ---- glossary ("All rules") ---- */
-.gcount{font-size:.8125rem;color:var(--ink-3)}
+.gcount{font-size:.8125rem;line-height:1.5;color:var(--ink-3)}
 .glosslist{margin:0}
 .glossrow{border-top:1px solid var(--rule)}
 .glosslist .glossrow:first-child{border-top:0}
 .glosshead{
   appearance:none;border:0;background:none;width:100%;display:flex;gap:var(--s3);font-family:var(--sans);
-  align-items:flex-start;padding:12px 0;min-height:44px;cursor:pointer;text-align:left;color:inherit;
+  align-items:flex-start;padding:16px 0;min-height:48px;cursor:pointer;text-align:left;color:inherit;
 }
-.glosshead .num{width:1.75rem;flex:none;text-align:right;font-size:.9375rem;color:var(--ink-3);padding-top:1px}
-.glosshead .t{flex:1;min-width:0;font-size:.9375rem;line-height:1.45;color:var(--ink)}
+.glosshead .num{width:1.75rem;flex:none;text-align:right;font-size:.9375rem;color:var(--ink-3);padding-top:2px}
+/* No truncation here either: the full rule title wraps onto as many lines
+   as it needs. */
+.glosshead .t{flex:1;min-width:0;font-size:.9375rem;line-height:1.5;color:var(--ink)}
 .glosshead[aria-expanded="true"] .t{font-weight:600}
-.glosshead .n{flex:none;font-size:.8125rem;color:var(--ink-3);padding-top:2px;white-space:nowrap}
-.glosspanel{padding:0 0 var(--s5) calc(1.75rem + var(--s3))}
-.glosspanel p{margin:0 0 var(--s3);font-size:1rem;line-height:1.65;max-width:38ch;color:var(--ink)}
+.glosshead .n{flex:none;font-size:.8125rem;color:var(--ink-3);padding-top:3px;white-space:nowrap}
+.glosspanel{padding:0 0 var(--s6) calc(1.75rem + var(--s3))}
+.glosspanel p{margin:0 0 var(--s4);font-size:1rem;line-height:1.65;max-width:38ch;color:var(--ink)}
 .glosspanel ul{margin:0 0 var(--s4);padding:0;list-style:none}
-.glosspanel ul li{font-size:.9375rem;line-height:1.5;padding:4px 0 4px 14px;position:relative;color:var(--ink-2)}
-.glosspanel ul li::before{content:"";position:absolute;left:0;top:.72em;width:6px;height:1px;background:var(--edge)}
+.glosspanel ul li{font-size:.9375rem;line-height:1.6;padding:6px 0 6px 16px;position:relative;color:var(--ink-2)}
+.glosspanel ul li::before{content:"";position:absolute;left:0;top:.85em;width:6px;height:1px;background:var(--edge)}
 .glosspanel ul li .es{color:var(--ink)}
-.glosspanel .variant{border-left:1.5px solid var(--rule-2);padding:2px 0 2px var(--s3);margin:0 0 var(--s4)}
-.glosspanel .variant .vlbl{font-size:.8125rem;color:var(--ink-3);margin-bottom:4px}
-.glosspanel .variant p{font-size:.9375rem;line-height:1.55;color:var(--ink-2);margin:0;max-width:36ch}
-.glosspanel .where{font-size:.8125rem;line-height:1.55;color:var(--ink-3);margin:0 0 var(--s2);max-width:38ch}
-.practicerow{display:flex;flex-wrap:wrap;gap:0 var(--s4);padding-top:var(--s1)}
-.gpractice{padding:10px 0}
+.glosspanel .variant{border-left:1.5px solid var(--rule-2);padding:4px 0 4px var(--s3);margin:0 0 var(--s4)}
+.glosspanel .variant .vlbl{font-size:.8125rem;color:var(--ink-3);margin-bottom:6px}
+.glosspanel .variant p{font-size:.9375rem;line-height:1.6;color:var(--ink-2);margin:0;max-width:36ch}
+.glosspanel .where{font-size:.8125rem;line-height:1.6;color:var(--ink-3);margin:0 0 var(--s3);max-width:38ch}
+.practicerow{display:flex;flex-wrap:wrap;gap:var(--s1) var(--s4);padding-top:var(--s1)}
+.gpractice{padding:12px 0;min-height:48px}
 
 /* ---- summary ---- */
-.summary-line{font-size:1.375rem;line-height:1.3;font-weight:600;letter-spacing:-.012em;margin:var(--s3) 0 var(--s5)}
+.summary-line{font-size:1.375rem;line-height:1.35;font-weight:600;letter-spacing:-.012em;margin:var(--s4) 0 var(--s5)}
 .summary-line .miss{color:var(--flag)}
-.summary .donenote{font-size:.875rem;color:var(--ink-3);margin:0 0 var(--s4)}
-.trackrow{display:flex;justify-content:space-between;font-size:.9375rem;padding:10px 0;border-top:1px solid var(--rule)}
+.summary .donenote{font-size:.875rem;line-height:1.5;color:var(--ink-3);margin:0 0 var(--s4)}
+.trackrow{display:flex;justify-content:space-between;font-size:.9375rem;padding:14px 0;border-top:1px solid var(--rule)}
 .tracks{border-bottom:1px solid var(--rule)}
 .trackrow .l{color:var(--ink-2)}
 
@@ -298,20 +319,20 @@ main.view-drill{flex:1;display:flex;flex-direction:column}
 .backup-list{margin:0}
 .backup-row{border-top:1px solid var(--rule);padding:var(--s5) 0}
 .backup-list .backup-row:first-child{border-top:0;padding-top:var(--s3)}
-.backup-row .lbl{font-size:.8125rem;color:var(--ink-3);margin-bottom:6px}
-.backup-row p{margin:0 0 var(--s3);font-size:.9375rem;line-height:1.5;color:var(--ink-2);max-width:38ch}
+.backup-row .lbl{font-size:.8125rem;color:var(--ink-3);margin-bottom:8px}
+.backup-row p{margin:0 0 var(--s4);font-size:.9375rem;line-height:1.55;color:var(--ink-2);max-width:38ch}
 .filerow{
   appearance:none;background:transparent;border:1.5px solid var(--edge);border-radius:3px;color:var(--ink);
-  padding:10px 14px;min-height:44px;font-size:.875rem;cursor:pointer;font-family:var(--sans);
+  padding:12px 16px;min-height:48px;font-size:.875rem;cursor:pointer;font-family:var(--sans);
 }
 .radiorow{
-  display:flex;align-items:flex-start;gap:var(--s2);padding:10px 0;min-height:44px;
-  cursor:pointer;font-size:.9375rem;color:var(--ink);
+  display:flex;align-items:flex-start;gap:var(--s2);padding:12px 0;min-height:48px;
+  cursor:pointer;font-size:.9375rem;line-height:1.5;color:var(--ink);
 }
 .radiorow input{margin-top:.3rem;flex:none;width:1.1rem;height:1.1rem;accent-color:var(--ink)}
 .radiorow b{font-weight:600}
 .radiorow.confirm{color:var(--flag)}
-.backup-msg{margin-top:var(--s4);padding-left:var(--s3);font-size:.9375rem;border-left:1.5px solid var(--edge);color:var(--ink)}
+.backup-msg{margin-top:var(--s4);padding-left:var(--s3);font-size:.9375rem;line-height:1.55;border-left:1.5px solid var(--edge);color:var(--ink)}
 .backup-msg.err{border-left-color:var(--flag);color:var(--flag)}
 </style>
 </head>
@@ -352,7 +373,11 @@ function splitStep(s){
 }
 function stepHtml(s){
   var parts = splitStep(s), why = parts[0], es = parts[1];
-  return '<li><span class="why">'+esc(why)+'</span>' +
+  // "step-why", not "why" - the unscoped ".why" is a different block
+  // entirely (the rule-links group after the answer) and reusing its name
+  // here let that block's own border/margin bleed into every hint through
+  // the cascade: an orphan hairline sitting inside the first hint's text.
+  return '<li><span class="step-why">'+esc(why)+'</span>' +
     (es ? '<span class="sep">: </span><span class="es" lang="es">'+esc(es)+'</span>' : '') +
     '</li>';
 }
@@ -818,6 +843,7 @@ function nextStep(){
 function bar(html){ return '<div class="bar" id="bar">' + html + '</div>'; }
 function barStack(html){ return '<div class="bar stack" id="bar">' + html + '</div>'; }
 function barGrade(html){ return '<div class="bar grade" id="bar">' + html + '</div>'; }
+function barChoice(html){ return '<div class="bar choice" id="bar">' + html + '</div>'; }
 
 // The running head is home's only persistent chrome: the app name, the
 // course-wide stat, and a 3px measure line with an ink-filled segment.
@@ -1060,13 +1086,16 @@ function renderGlossary(){
 // A trailing parenthetical ("...? (informal)") is an instruction about how
 // to say it, not part of the sentence you have to say - broken onto its own
 // line pre-reveal (CSS: .reg is display:block there) so the two never read
-// as one sentence, and folded back inline once revealed (.eng.past .reg).
-function promptMarkup(text, past){
+// as one sentence, and folded back inline once revealed (.eng.answered .reg).
+// "answered" only dims the colour a shade (see .eng.answered in the CSS) -
+// it never changes size or position, so revealing the answer can't move the
+// prompt the learner was already reading.
+function promptMarkup(text, answered){
   var m = /^([\s\S]*)\s\(([^()]+)\)$/.exec(text);
   var body = m ? m[1] : text;
   var qualifier = m ? m[2] : null;
   var regHtml = qualifier ? ' <span class="reg">('+esc(qualifier)+')</span>' : '';
-  return '<div class="eng'+(past?' past':'')+'">'+esc(body)+regHtml+'</div>';
+  return '<div class="eng'+(answered?' answered':'')+'">'+esc(body)+regHtml+'</div>';
 }
 
 function undoLineHtml(extraStyle){
@@ -1089,14 +1118,23 @@ function renderDrill(){
   var bannerHtml = ruleFilterId ? ('<div class="filterbanner">Only drills for: <b>'+esc(ruleFilterLabel)+'</b> ' +
     '<button class="link-inline" id="clearRuleFilterBtn">Show all</button></div>') : '';
 
+  // The hint stack is identical whichever state we're in - revealing the
+  // answer never touches it, so it's built once and reused (see item 5:
+  // nothing already on screen may move when the answer arrives).
+  var stepsHtml = "";
+  if(revealedSteps>0 && d.steps){
+    stepsHtml = '<ul class="steps">' + d.steps.slice(0,revealedSteps).map(stepHtml).join('') + '</ul>';
+  }
+
   if(!answerShown){
-    var stepsHtml = "";
-    if(revealedSteps>0 && d.steps){
-      stepsHtml = '<ul class="steps">' + d.steps.slice(0,revealedSteps).map(stepHtml).join('') + '</ul>';
-    }
     return cueHtml + bannerHtml + promptMarkup(d.prompt, false) + stepsHtml + undoLineHtml();
   }
 
+  // Revealing the answer adds a new block BELOW what's already on screen -
+  // it does not recompose the prompt or the hints. The prompt keeps its
+  // exact size and position (promptMarkup only dims its colour a shade);
+  // the answer's own weight and the hairline above it (see .answer in the
+  // CSS) are what make this read as an event.
   var flagHtml = (typeof d.confidence === "number" && d.confidence < 0.7) ? '<span class="flag">low-confidence guess</span>' : '';
   var noteHtml = d.note ? '<div class="note">'+esc(d.note)+'</div>' : '';
   var whyHtml = "";
@@ -1107,7 +1145,7 @@ function renderDrill(){
       return '<button class="rulelink" data-ruleid="'+esc(rid)+'">'+esc(lbl)+'<span class="arrow">&rarr;</span></button>';
     }).join('') + '</div>';
   }
-  return cueHtml + bannerHtml + promptMarkup(d.prompt, true) +
+  return cueHtml + bannerHtml + promptMarkup(d.prompt, true) + stepsHtml +
     '<div class="answer" aria-live="polite"><div class="es" lang="es">'+esc(d.answer)+'</div>' + noteHtml + flagHtml +
     '<button class="speak" id="speakBtn">'+SPK_ICON+' Hear it</button></div>' +
     whyHtml + undoLineHtml('margin-top:var(--s4)');
@@ -1118,9 +1156,17 @@ function drillBarHtml(){
   if(!d) return bar('<button class="btn" id="homeBtn">All tracks</button>');
   if(!answerShown){
     var stepsLeft = d.steps && revealedSteps < d.steps.length;
-    var pieceBtn = stepsLeft ? '<button class="btn" id="nextStepBtn">Give me a piece</button>' : '<button class="btn" id="revealBtn">Show the answer</button>';
-    var tellBtn = stepsLeft ? '<button class="tell" id="revealBtn">Show the answer</button>' : '';
-    return bar(pieceBtn + tellBtn);
+    // Both actions here are real choices, so both are real buttons - "Give
+    // me a piece" is primary (filled) while hints remain, "Show the answer"
+    // is secondary (bordered, not link-styled) beside it; once hints run
+    // out, "Show the answer" becomes the sole, primary action.
+    if(stepsLeft){
+      return barChoice(
+        '<button class="btn" id="nextStepBtn">Give me a piece</button>' +
+        '<button class="btn secondary" id="revealBtn">Show the answer</button>'
+      );
+    }
+    return bar('<button class="btn" id="revealBtn">Show the answer</button>');
   }
   return barGrade(
     '<button class="no" id="stuckBtn">Not yet</button>' +
