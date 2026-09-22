@@ -102,6 +102,12 @@ rejected before anything is written.
   It used to mean all three depending on what happened to be on screen, so
   pressing it once too often silently left the drill you were working on;
   `npm test` now presses it well past the end and fails if it moves.
+  The browser's or phone's own back button is the fourth, and it follows
+  the same map: from a drill it leaves the track, from the Rules tab it
+  returns to the drills, and on the home screen it leaves the app. The
+  history is kept one entry deep to make that true - home is the base
+  entry and every other screen shares a single one on top of it - so a
+  long session never leaves a trail of dead back presses behind it.
 - Track 1 (the course's own orientation) has no Spanish in it at all, so its
   pack is rules only, no drills — an honest empty array beats a manufactured
   quiz the transcript doesn't support. Track 90 (dialect variation) is the

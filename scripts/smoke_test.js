@@ -514,6 +514,57 @@ async function main() {
     check(pageErrors.length === 0, 'no page/console errors during the PWA/offline checks',
       pageErrors.join('\n  '));
 
+    // ==================== history: one entry deep, back on home leaves ====================
+    // Every change of screen used to push a history entry, so a normal
+    // session left dozens behind and the system back button on the home
+    // screen (the way out of an installed app) did nothing for press after
+    // press. Real back presses here, in a fresh tab so earlier tests' history
+    // can't muddy it: about:blank, then the app.
+    {
+      const hp = await context.newPage();
+      await hp.goto(url, { waitUntil: 'load' });
+      await hp.waitForSelector('.packcard');
+      const histPack = DATA.packs.find((p) => p.drills.length >= 3);
+      const openHistPack = async () => {
+        await hp.click(`.rowbtn[data-pid="${cssEscape(histPack.id)}"]`);
+        await hp.waitForSelector('#stage');
+      };
+      const viewOf = () => hp.evaluate(() => (document.querySelector('main') || {}).className || '');
+      const back = async () => { await hp.goBack({ waitUntil: 'commit' }).catch(() => {}); await hp.waitForTimeout(200); };
+      const startLen = await hp.evaluate(() => history.length);
+      for (let round = 0; round < 3; round++) {
+        await openHistPack();
+        await hp.click('#tabRules');
+        await hp.click('#tabDrills');
+        await hp.click('#topHomeBtn');
+        await hp.waitForSelector('.packcard');
+        await hp.click('#glossaryBtn');
+        await hp.waitForSelector('.glosshead');
+        await hp.click('#topHomeBtn');
+        await hp.waitForSelector('.packcard');
+      }
+      await hp.waitForTimeout(200);
+      const endLen = await hp.evaluate(() => history.length);
+      check(endLen <= startLen + 1,
+        'three round trips through a track, its tabs and the glossary leave the history at most one entry deeper',
+        `history.length went ${startLen} -> ${endLen}`);
+
+      await openHistPack();
+      await back();
+      check((await viewOf()).indexOf('view-home') !== -1, 'a real back press from a drill goes home', await viewOf());
+
+      await openHistPack();
+      await hp.click('#tabRules');
+      await back();
+      check((await viewOf()).indexOf('view-drill') !== -1, 'a real back press from the Rules tab goes back to the drills', await viewOf());
+      await back();
+      check((await viewOf()).indexOf('view-home') !== -1, 'and the next back press leaves the track for home', await viewOf());
+
+      await back();
+      check(hp.url() !== url, 'one back press on the home screen leaves the app', `still at ${hp.url()}`);
+      await hp.close();
+    }
+
     // ==================== recap pool correctness ====================
     // Regression coverage for the recap bug: "seems like it's always the
     // same and only 2 drills." Root cause was that startRecap() pooled ONLY

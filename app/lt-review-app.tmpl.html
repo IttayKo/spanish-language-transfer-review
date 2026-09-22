@@ -455,7 +455,7 @@ var SPK_ICON = '<svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria
 var pack = null, view = "home", queue = [], idx = 0, revealedSteps = 0, answerShown = false,
     grades = {}, usedHint = false, highlightRule = null, focusRuleId = null,
     homeFilter = "", homeJustEntered = false, lastRenderedView = null,
-    ruleFilterId = null, ruleFilterLabel = null, lastPushedView = null, suppressPush = false,
+    ruleFilterId = null, ruleFilterLabel = null, inHistoryEntry = false, ignoreNextPop = false, suppressPush = false,
     glossaryFilter = "", openFamily = null,
     backupMode = "merge", backupConfirmReplace = false, backupMsg = null, backupMsgKind = null;
 
@@ -1195,9 +1195,9 @@ function prevDrill(){
   render();
 }
 
-// Browser/system back. The drill view is a single history entry (see the
-// pushState in render()), so backing out of it leaves the track rather than
-// rewinding inside it.
+// Browser/system back (see syncHistory() for how the history is kept). From
+// a drill it leaves the track rather than rewinding inside it; from the
+// Rules tab it goes back to the drills.
 function goBack(){
   if(view==="drill"){ enterHome(); return; }
   if(view==="rules"){
@@ -1855,12 +1855,28 @@ function render(){
     }
   }
 
-  if(suppressPush){
-    lastPushedView = view;
-  } else if(lastPushedView !== view){
-    try{ history.pushState({view: view, packId: pack ? pack.id : null}, ''); }catch(e){}
-    lastPushedView = view;
-  }
+  if(!suppressPush) syncHistory();
+}
+
+// The browser history is kept at most one entry deep: home is the base
+// entry, and everything else - a track's drills, its rules, its summary, the
+// glossary, the backup page - shares a single entry on top of it. Leaving
+// home pushes that entry; moving between the other screens replaces it; and
+// coming home by any in-app button steps back off it. It used to push a new
+// entry on every change of screen, so an ordinary session left dozens behind
+// and the system back button on the home screen - the way out of an
+// installed app on Android - did nothing, press after press, before it
+// finally left.
+function syncHistory(){
+  try{
+    if(view === "home"){
+      if(inHistoryEntry){ inHistoryEntry = false; ignoreNextPop = true; history.back(); }
+    } else if(!inHistoryEntry){
+      history.pushState({app: view}, ''); inHistoryEntry = true;
+    } else {
+      history.replaceState({app: view}, '');
+    }
+  }catch(e){ ignoreNextPop = false; }
 }
 
 // Toggling "done" changes more than one class (the progress column goes
@@ -2005,8 +2021,22 @@ function wire(){
 }
 
 window.addEventListener('popstate', function(ev){
-  if(view==="glossary" || view==="backup"){ suppressPush = true; enterHome(); suppressPush = false; return; }
-  if(pack){ suppressPush = true; goBack(); suppressPush = false; }
+  // The pop our own history.back() in syncHistory() causes: the screen is
+  // already home, there's nothing left to do.
+  if(ignoreNextPop){ ignoreNextPop = false; return; }
+  inHistoryEntry = false;
+  if(view === "home"){
+    // Home is the base entry, so the only way to pop while on it is the
+    // forward button landing on a stale entry above it: step straight back.
+    if(ev.state && ev.state.app && ev.state.app !== "home"){ ignoreNextPop = true; history.back(); }
+    return;
+  }
+  suppressPush = true;
+  if(view==="glossary" || view==="backup") enterHome(); else goBack();
+  suppressPush = false;
+  // Back from the Rules tab lands on the drills, still inside the track, so
+  // it needs its entry back for the next back press to leave the track.
+  if(view !== "home"){ try{ history.pushState({app: view}, ''); inHistoryEntry = true; }catch(e){} }
 });
 
 // Rotating the phone, a desktop window resize, or the mobile URL bar
@@ -2024,6 +2054,7 @@ window.addEventListener('orientationchange', scheduleRefit);
 
 if(DEMO && !demoProgressExists()) seedDemoProgress();
 
+try{ history.replaceState({app: "home"}, ''); }catch(e){}
 render();
 })();
 </script>
