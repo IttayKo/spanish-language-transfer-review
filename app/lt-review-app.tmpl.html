@@ -104,6 +104,10 @@ main{flex:1;padding:0 0 calc(var(--bar) + var(--s5))}
 .home-hero .lbl{font-size:.8125rem;color:var(--ink-3);margin-bottom:8px}
 .home-hero .t{font-size:1.375rem;line-height:1.3;font-weight:600;letter-spacing:-.012em;margin-bottom:8px}
 .home-hero .b{font-size:.9375rem;color:var(--ink-2);line-height:1.55;max-width:34ch;margin:0}
+/* Listen-first reminder: periphery, not a fact about the track
+   itself, so it gets the quietest ink and no room of its own beyond a
+   little top margin - same discipline as .link .sub below. */
+.home-hero .listen{font-size:.8125rem;color:var(--ink-3);line-height:1.5;max-width:34ch;margin:8px 0 0}
 /* Full width, like the primary button in the drill bar. Shrink-wrapped it
    hangs flush-left under the description with nothing balancing it. */
 .home-hero .btn{display:block;width:100%;margin-top:var(--s3)}
@@ -384,6 +388,11 @@ main.view-drill{flex:1;min-height:0;display:flex;flex-direction:column;padding-b
    as it needs. */
 .glosshead .t{flex:1;min-width:0;font-size:.9375rem;line-height:1.5;color:var(--ink)}
 .glosshead[aria-expanded="true"] .t{font-weight:600}
+/* "Don't run ahead": quiet, not hidden - the entry stays fully
+   reachable, the title just drops to periphery ink like everything else
+   that isn't live content yet. No new colour: ink-3 is already what the
+   rest of the app uses for "not the main thing right now". */
+.glosshead.ahead .t{color:var(--ink-3)}
 .glosshead .n{flex:none;font-size:.8125rem;color:var(--ink-3);padding-top:3px;white-space:nowrap}
 .glosspanel{padding:0 0 var(--s6) calc(1.75rem + var(--s3))}
 .glosspanel p{margin:0 0 var(--s4);font-size:1rem;line-height:1.65;max-width:38ch;color:var(--ink)}
@@ -402,6 +411,7 @@ main.view-drill{flex:1;min-height:0;display:flex;flex-direction:column;padding-b
 .summary-line{font-size:1.375rem;line-height:1.35;font-weight:600;letter-spacing:-.012em;margin:var(--s4) 0 var(--s5)}
 .summary-line .miss{color:var(--flag)}
 .summary .donenote{font-size:.875rem;line-height:1.5;color:var(--ink-3);margin:0 0 var(--s4)}
+.summary .listennote{font-size:.875rem;line-height:1.5;color:var(--ink-3);margin:var(--s4) 0 0}
 .trackrow{display:flex;justify-content:space-between;font-size:.9375rem;padding:14px 0;border-top:1px solid var(--rule)}
 .tracks{border-bottom:1px solid var(--rule)}
 .trackrow .l{color:var(--ink-2)}
@@ -816,11 +826,48 @@ function finishImport(){
   var fi = document.getElementById('importFile'); if(fi){ fi.value = ""; }
 }
 
+// Any sign the learner has actually started: a grade on any drill anywhere,
+// or a done-mark on any track (ticking one by hand counts even before its
+// drills are touched). Used to decide both the home hero's label
+// and whether a drills-only pack gets skipped when recommending what's next
+// (below) - a fresh user with neither has done nothing yet, so track 1
+// still comes first for them.
+function hasAnyProgress(){
+  var doneMap = getDoneMap();
+  if(Object.keys(doneMap).length) return true;
+  var packs = DATA.packs;
+  for(var i=0;i<packs.length;i++){ if(packProgress(packs[i])) return true; }
+  return false;
+}
+
+// A pack with no drills (track 1; see packFullyGraded()) never auto-marks
+// itself done, on purpose - so left alone, this used to keep pointing the
+// home hero at it forever, unless the learner happened to find and tick its
+// circle by hand. Once there's any sign they've moved on (a graded drill
+// anywhere, or a later track ticked done), an un-ticked drills-only pack
+// reads as "passed through", not "stuck here", so it's skipped in favour of
+// the next real one. A fresh user with no progress at all still gets it
+// first, same as before.
 function nextRecommendedTrack(){
   var packs = orderedPacks();
   var doneMap = getDoneMap();
-  for(var i=0;i<packs.length;i++){ if(!doneMap[packs[i].id]) return packs[i]; }
+  var anyProgress = hasAnyProgress();
+  for(var i=0;i<packs.length;i++){
+    var p = packs[i];
+    if(doneMap[p.id]) continue;
+    if(!p.drills.length && anyProgress) continue;
+    return p;
+  }
   return null;
+}
+
+// The glossary's "don't run ahead" marker needs the same track the
+// hero recommends, not raw done-state, so a track skipped by the rule just
+// above (an unticked drills-only pack the learner has clearly passed) isn't
+// mistaken for where they currently are.
+function currentTrackNum(){
+  var rec = nextRecommendedTrack();
+  return rec ? rec.tracks[0] : null;
 }
 
 function nextPackAfter(p){
@@ -831,15 +878,6 @@ function nextPackAfter(p){
 
 /* ---------- on-demand recap ---------- */
 var RECAP_SIZE = 12;
-
-function shuffled(arr){
-  var a = arr.slice();
-  for(var i=a.length-1;i>0;i--){
-    var j = Math.floor(Math.random()*(i+1));
-    var tmp=a[i]; a[i]=a[j]; a[j]=tmp;
-  }
-  return a;
-}
 
 // Tracks worth recapping: anything the learner has covered - marked done
 // via the home-screen circle (which grades nothing on its own), or with at
@@ -852,22 +890,147 @@ function recapCandidatePacks(){
 
 function hasRecapMaterial(){ return recapCandidatePacks().length > 0; }
 
-// A plain mixed sample: every drill from every covered track, shuffled,
-// take RECAP_SIZE. It used to rank the pool - stuck first, then ungraded,
-// then already-got - and that ranking is gone on purpose. Two reasons. It
-// never worked as advertised: a recap's own grades are saved against the
-// synthetic "recap" pack (see the pack this function builds below), never
-// against the track a drill came from, so getting stuck on something in a
-// recap never once made it more likely to come back. And a recap across a
-// stretch of the course is a more honest test than one that keeps handing
-// back the same weak spots - you find out what actually stuck, rather than
-// being quizzed on a list you already know you are bad at.
+function normalizeAnswer(s){
+  return String(s||'').toLowerCase().replace(/[^\p{L}\p{N}\s]/gu, '').replace(/\s+/g,' ').trim();
+}
+
+// Split an ordered array into `k` contiguous, roughly-equal bands (the first
+// `n % k` bands get one extra item). Only ever called with k <= arr.length,
+// so every band comes back non-empty.
+function splitIntoBands(arr, k){
+  var bands = [], n = arr.length, base = Math.floor(n/k), rem = n % k, at = 0;
+  for(var i=0;i<k;i++){
+    var size = base + (i < rem ? 1 : 0);
+    bands.push(arr.slice(at, at+size));
+    at += size;
+  }
+  return bands;
+}
+
+function drillFamilies(d){
+  return (d.rules||[]).map(ruleById).filter(Boolean).map(familyOf);
+}
+
+// Sentences carry the weight the method is built on (you build the
+// sentence; a word swap is a quick win, not the point) and a sentence the
+// teacher never actually said on the recording (source:"extension") or one
+// that leans on two rules at once tests the rule rather than memory of the
+// audio - so both get extra pull. This is a weight, not a filter: a word
+// drill can still be picked, just less often (see the hard 2-word cap in
+// pickForSlot below, which is the actual exclusion).
+function recapWeight(d){
+  var w = (d.type === 'word') ? 1 : 8;
+  if(d.type !== 'word' && (d.rules||[]).length >= 2) w *= 1.5;
+  if(d.source === 'extension') w *= 1.3;
+  return w;
+}
+
+function weightedPick(candidates){
+  var weights = candidates.map(function(w){ return recapWeight(w.d); });
+  var total = 0, i;
+  for(i=0;i<weights.length;i++){ total += weights[i]; }
+  var r = Math.random() * total;
+  for(i=0;i<candidates.length;i++){ r -= weights[i]; if(r <= 0) return candidates[i]; }
+  return candidates[candidates.length-1];
+}
+
+// One slot's pick, from its assigned track first and the whole remaining
+// covered pool if that track has nothing left to give. Tries progressively
+// looser rules: fresh rule
+// families and the two-word cap both held to, then families may repeat,
+// then (last resort, so the recap still reaches its target size) the word
+// cap goes too. An already-used drill id or an answer already in this recap
+// is never allowed, at any tier - that's the one rule with no relaxation.
+function pickForSlot(slotTrack, allTracks, usedIds, usedAnswers, usedFamilies, wordCount){
+  var tiers = [
+    {familyNew:true,  wordCapped:true},
+    {familyNew:false, wordCapped:true},
+    {familyNew:false, wordCapped:false}
+  ];
+  function eligible(pool, opts){
+    return pool.filter(function(w){
+      var d = w.d;
+      if(usedIds[d.id]) return false;
+      if(usedAnswers[normalizeAnswer(d.answer)]) return false;
+      if(opts.wordCapped && d.type==='word' && wordCount>=2) return false;
+      if(opts.familyNew){
+        var fams = drillFamilies(d);
+        for(var i=0;i<fams.length;i++){ if(usedFamilies[fams[i]]) return false; }
+      }
+      return true;
+    });
+  }
+  var t, found;
+  for(t=0;t<tiers.length;t++){
+    found = eligible(slotTrack.pool, tiers[t]);
+    if(found.length) return weightedPick(found);
+  }
+  var globalPool = [];
+  allTracks.forEach(function(tr){ globalPool = globalPool.concat(tr.pool); });
+  for(t=0;t<tiers.length;t++){
+    found = eligible(globalPool, tiers[t]);
+    if(found.length) return weightedPick(found);
+  }
+  return null; // the covered pool is genuinely out of unused answers
+}
+
+// Composed, not memorised: this draws only on which tracks are covered
+// (recapCandidatePacks) and the drills' own structure (track, type, rules,
+// source, answer) - never a grade, never which drills a past recap used. A
+// recap's own grades live under the synthetic "recap" key, not the track a
+// drill came from, so ranking by "got"/"stuck" here never once made a weak
+// spot more likely to come back; this doesn't add that back by another
+// route (no streaks, no spaced repetition, no per-drill history) - it goes
+// after breadth and shape instead:
+//   1. breadth - one drill per "slot", spread across the covered range: with
+//      few tracks covered, cycle through them round-robin; with more
+//      covered than RECAP_SIZE, split the range into RECAP_SIZE bands (in
+//      course order) and draw one random track per band, so a recap after
+//      60 tracks still touches early and recent material rather than
+//      clustering wherever a flat shuffle happened to land.
+//   2. per slot, prefer a drill whose rule(s) aren't already in this recap,
+//      and prefer a sentence over a word drill (word drills capped at 2) -
+//      see pickForSlot's relaxation ladder for exactly when either gives way
+//      to just filling the recap.
+//   3. never two drills with the same answer.
+// The picks land in course order in the queue (track, then position in its
+// pack) regardless of the order they were drawn in - the course itself
+// revisits earlier material building forward, so the recap reads the same way.
 function startRecap(){
-  var pool = [];
-  recapCandidatePacks().forEach(function(p){
-    pool = pool.concat(p.drills);
+  var byTrack = recapCandidatePacks().map(function(p){
+    return {track:p.tracks[0], pool:p.drills.map(function(d,i){ return {d:d, pos:i, track:p.tracks[0]}; })};
+  }).filter(function(t){ return t.pool.length>0; });
+
+  // The real ceiling on how many drills this recap can hold: one per
+  // distinct answer in the covered pool (never two drills with the same
+  // answer), not just the raw drill count.
+  var distinctAnswers = {};
+  byTrack.forEach(function(t){ t.pool.forEach(function(w){ distinctAnswers[normalizeAnswer(w.d.answer)] = true; }); });
+  var target = Math.min(RECAP_SIZE, Object.keys(distinctAnswers).length);
+
+  var slots = [];
+  if(target > 0){
+    if(byTrack.length <= target){
+      for(var i=0;i<target;i++){ slots.push(byTrack[i % byTrack.length]); }
+    } else {
+      slots = splitIntoBands(byTrack, target).map(function(band){
+        return band[Math.floor(Math.random()*band.length)];
+      });
+    }
+  }
+
+  var usedIds = {}, usedAnswers = {}, usedFamilies = {}, wordCount = 0, pickedWrapped = [];
+  slots.forEach(function(slotTrack){
+    var w = pickForSlot(slotTrack, byTrack, usedIds, usedAnswers, usedFamilies, wordCount);
+    if(!w) return;
+    usedIds[w.d.id] = true;
+    usedAnswers[normalizeAnswer(w.d.answer)] = true;
+    drillFamilies(w.d).forEach(function(f){ usedFamilies[f] = true; });
+    if(w.d.type === 'word') wordCount++;
+    pickedWrapped.push(w);
   });
-  var picked = shuffled(pool).slice(0, RECAP_SIZE);
+  pickedWrapped.sort(function(a,b){ return (a.track-b.track) || (a.pos-b.pos); });
+  var picked = pickedWrapped.map(function(w){ return w.d; });
 
   var ruleIds = {};
   picked.forEach(function(d){ (d.rules||[]).forEach(function(rid){ ruleIds[rid]=true; }); });
@@ -1041,7 +1204,11 @@ function goBack(){
     if(queue.length){ view = "drill"; render(); return; }
     enterHome(); return;
   }
-  if(view==="summary"){ view="drill"; render(); return; }
+  // A summary is a finished session, not a paused one - there's no drill to
+  // rewind back into (idx has already run past the end of queue), so this
+  // used to land on a dead "idx === queue.length" drill screen. Same exit as
+  // backing out of a drill itself.
+  if(view==="summary"){ enterHome(); return; }
   enterHome();
 }
 
@@ -1142,14 +1309,21 @@ function packCardHtml(p){
 
 function trackRangeText(sec){ return sec.end===sec.start ? ('Track '+sec.start) : ('Tracks '+sec.start+'&ndash;'+sec.end); }
 
-// "Where you left off" (or, once nothing is left, the all-caught-up state).
-// Pulled out on its own so the done-toggle handler in wire() can refresh
-// just this block without a full re-render.
+// "Where you left off" (or, before there's anything to have left off from,
+// "Start here" - and once nothing is left, the all-caught-up state). Pulled
+// out on its own so the done-toggle handler in wire() can refresh just this
+// block without a full re-render.
 function homeHeroHtml(){
   var rec = nextRecommendedTrack();
   if(rec){
-    return '<div class="home-hero" id="homeHero"><div class="lbl">Where you left off</div>' +
-      '<div class="t">Track '+rec.tracks[0]+'</div><p class="b">'+esc(rec.blurb||'')+'</p>' +
+    var lbl = hasAnyProgress() ? 'Where you left off' : 'Start here';
+    // The method (see README) is: listen to the track's own audio first, the
+    // drills are for building what it taught, after. Said once, quietly,
+    // rather than assumed - nothing else in the app says so.
+    var listenHtml = rec.drills.length ?
+      '<p class="listen">Listen to track '+rec.tracks[0]+' first, then build its sentences here.</p>' : '';
+    return '<div class="home-hero" id="homeHero"><div class="lbl">'+lbl+'</div>' +
+      '<div class="t">Track '+rec.tracks[0]+'</div><p class="b">'+esc(rec.blurb||'')+'</p>' + listenHtml +
       '<button class="btn" id="continueCardBtn" data-pid="'+esc(rec.id)+'" aria-label="Start track '+rec.tracks[0]+'">Start</button>' +
       '</div>';
   }
@@ -1202,7 +1376,7 @@ function renderHome(){
   if(hasRecapMaterial()){
     var n = recapCandidatePacks().length;
     html += '<div class="linkrow"><button class="link" id="recapBtn">Recap practice' +
-      '<span class="sub">A mixed handful of drills from across the '+n+' track'+(n===1?'':'s')+' you\'ve covered.</span></button></div>';
+      '<span class="sub">Drills spread across the '+n+' track'+(n===1?'':'s')+' you\'ve covered so far &mdash; early and recent alike, rarely the same rule twice.</span></button></div>';
   }
 
   html += '<div class="linkrow"><button class="link" id="glossaryBtn">All rules' +
@@ -1255,11 +1429,19 @@ function trackListText(tracks){
   return 'tracks ' + tracks.slice(0,-1).join(', ') + ' and ' + tracks[tracks.length-1];
 }
 
-function glossaryEntryHtml(e, i, isOpen){
+// curTrack is the track nextRecommendedTrack() currently points to (see
+// currentTrackNum()), or null once every track is done - nothing is "ahead"
+// at that point. "Ahead" doesn't hide an entry (the glossary stays
+// a full reference, everything reachable) - it just says so quietly, so
+// "don't run ahead of the course" stays true of how the app reads even
+// though the data itself is all there.
+function glossaryEntryHtml(e, i, isOpen, curTrack){
   var rowId = 'gl-' + i, panelId = 'glp-' + i;
+  var ahead = curTrack !== null && e.origin > curTrack;
   var revisits = e.copies.filter(function(c){ return c.track !== e.origin; }).map(function(c){ return c.track; });
-  var countHtml = '<span class="n">' + (revisits.length ? (revisits.length+1) + ' tracks' : 'once') + '</span>';
-  var head = '<button class="glosshead" id="'+rowId+'" data-fam="'+esc(e.family)+'" aria-expanded="'+(isOpen?'true':'false')+'" aria-controls="'+panelId+'">' +
+  var countHtml = ahead ? '<span class="n">not reached yet</span>' :
+    '<span class="n">' + (revisits.length ? (revisits.length+1) + ' tracks' : 'once') + '</span>';
+  var head = '<button class="glosshead'+(ahead?' ahead':'')+'" id="'+rowId+'" data-fam="'+esc(e.family)+'" aria-expanded="'+(isOpen?'true':'false')+'" aria-controls="'+panelId+'">' +
     '<span class="num">'+e.origin+'</span>' +
     '<span class="t">'+esc(e.title)+'</span>' + countHtml +
     '</button>';
@@ -1275,6 +1457,9 @@ function glossaryEntryHtml(e, i, isOpen){
   }).join('');
   body += '<div class="where">Introduced in track '+e.origin +
     (revisits.length ? ' &middot; comes back in ' + trackListText(revisits) : '') + '.</div>';
+  if(ahead){
+    body += '<div class="where">The course teaches this in track '+e.origin+' &mdash; you haven\'t reached it yet.</div>';
+  }
 
   var targets = e.copies.filter(function(c){ return c.drills > 0; });
   if(!targets.length){
@@ -1289,6 +1474,7 @@ function glossaryEntryHtml(e, i, isOpen){
 }
 
 function renderGlossary(){
+  var curTrack = currentTrackNum();
   var q = glossaryFilter.trim();
   var html = '<div class="searchrow"><input id="glossarySearch" type="search" aria-label="Search all rules" placeholder="Search every rule" value="'+esc(glossaryFilter)+'"></div>';
 
@@ -1299,7 +1485,7 @@ function renderGlossary(){
     var only = (found.length===1) ? found[0].family : null;
     html += '<div class="section-head" style="margin-top:0;border-top:0;padding-top:var(--s2)"><h3>'+found.length+' rule'+(found.length===1?'':'s')+' match</h3></div>';
     html += '<div class="glosslist">' + found.map(function(e){
-      return glossaryEntryHtml(e, e.idx, openFamily===e.family || only===e.family);
+      return glossaryEntryHtml(e, e.idx, openFamily===e.family || only===e.family, curTrack);
     }).join('') + '</div>';
     return html;
   }
@@ -1310,7 +1496,7 @@ function renderGlossary(){
     html += '<div class="section-head"'+(si===0?' style="margin-top:0;border-top:0;padding-top:var(--s2)"':'')+'>' +
       '<div class="r">'+trackRangeText(sec)+'</div><h3>'+esc(sec.title)+'</h3></div>';
     html += '<div class="glosslist">' + entries.map(function(e){
-      return glossaryEntryHtml(e, e.idx, openFamily===e.family);
+      return glossaryEntryHtml(e, e.idx, openFamily===e.family, curTrack);
     }).join('') + '</div>';
   });
   return html;
@@ -1458,7 +1644,10 @@ function renderDrill(){
   // exact size and position (promptMarkup only dims its colour a shade);
   // the answer's own weight and the hairline above it (see .answer in the
   // CSS) are what make this read as an event.
-  var flagHtml = (typeof d.confidence === "number" && d.confidence < 0.7) ? '<span class="flag">low-confidence guess</span>' : '';
+  // Schema (skill/references/pack-format.md): confidence is either a number
+  // (warn below 0.7) or the literal string "low" (always warn).
+  var lowConfidence = d.confidence === "low" || (typeof d.confidence === "number" && d.confidence < 0.7);
+  var flagHtml = lowConfidence ? '<span class="flag">low-confidence guess</span>' : '';
   var noteHtml = d.note ? '<div class="note">'+esc(d.note)+'</div>' : '';
   var whyHtml = "";
   if(d.rules && d.rules.length){
@@ -1537,10 +1726,19 @@ function renderSummary(){
   // The only thing on this screen you might act on is a miss, so it's the
   // only thing coloured here.
   var summaryLine = built+' of '+queue.length+' got it'+(stuck ? ', <span class="miss">'+stuck+' not yet</span>' : '')+'.';
+  // Same reminder as the home hero, pointed at whatever's next:
+  // "Continue to Track N+1" below drops straight into that track's drills,
+  // which is only right after its own audio has been heard. Only makes
+  // sense where that button is the one about to be offered - a recap has no
+  // next track of its own, and a rule-filtered session's next step is back
+  // to this same track, not forward.
+  var next = (!pack.recap && !ruleFilterId) ? nextPackAfter(pack) : null;
+  var listenHtml = next ? '<p class="listennote">Track '+next.tracks[0]+'\'s drills are for after you\'ve listened to it.</p>' : '';
   return '<div class="summary">' +
     '<div class="summary-line">'+summaryLine+'</div>' +
     (isDone(pack.id) ? '<p class="donenote">This track is marked done.</p>' : '') +
     (rows ? '<div class="tracks">'+rows+'</div>' : '') +
+    listenHtml +
     '</div>';
 }
 
@@ -1731,7 +1929,11 @@ function wire(){
   });
   on('topHomeBtn2', enterHome);
   on('homeBtn', enterHome);
-  on('tabDrills', function(){ view = "drill"; render(); });
+  // A finished session (idx has run past the end of a non-empty queue) has
+  // no drill left to show - the Drills tab lands on the summary in that
+  // case, same dead-screen fix as goBack() above, rather than a "Nothing to
+  // practice here." screen.
+  on('tabDrills', function(){ view = (queue.length && idx >= queue.length) ? "summary" : "drill"; render(); });
   on('tabRules', function(){ view = "rules"; render(); });
 
   onAll('.rowbtn', function(ev, el){
@@ -1779,7 +1981,14 @@ function wire(){
     view = queue.length ? "drill" : "summary";
     render();
   });
-  on('restartBtn', function(){ startSession({restart:true}); render(); });
+  // "Start over" on a rule-filtered summary must restart the same filtered
+  // set, not drop the filter and restart the whole track - startSession()'s
+  // ruleFilter branch always begins at idx 0 on its own, so restart:true is
+  // only needed (and only meaningful) on the unfiltered path.
+  on('restartBtn', function(){
+    startSession(ruleFilterId ? {ruleFilter: ruleFilterId, restart:true} : {restart:true});
+    render();
+  });
   // "Continue to Track N+1" skips enterHome() entirely (it opens the next
   // pack directly), so it runs the same auto-finish check enterHome() does
   // rather than marking this track done unconditionally - a track can only

@@ -589,6 +589,131 @@ async function main() {
     check(pageErrors.length === 0, 'no page/console errors during the recap pool check',
       pageErrors.join('\n  '));
 
+    // ==================== recap composition: breadth, rule diversity, no duplicate answers, course order ====================
+    // The rewritten startRecap() composes a recap only from which tracks are
+    // covered and the drills' own structure (track, type, rules, source,
+    // answer) - deliberately no memory-based feature: no grades, no past
+    // recap's history, no spaced repetition. This checks the observable
+    // shape that composition is meant to produce.
+    function ruleByIdTest(rid) {
+      for (const p of DATA.packs) {
+        const r = (p.rules || []).find((x) => x.id === rid);
+        if (r) return r;
+      }
+      return null;
+    }
+    function familyOfTest(r) { return r.family || r.id.split('__')[1].replace(/-\d+$/, ''); }
+    function normalizeAnswerTest(s) {
+      return String(s || '').toLowerCase().replace(/[^\p{L}\p{N}\s]/gu, '').replace(/\s+/g, ' ').trim();
+    }
+    // Looked up by (track, exact answer text) rather than drill id, since the
+    // rendered page never exposes a drill's id - its answer text (rendered
+    // via textContent, so HTML entities are already decoded) is effectively
+    // unique per track in this dataset.
+    const allDrillsIndex = new Map();
+    DATA.packs.forEach((p) => (p.drills || []).forEach((d) => {
+      allDrillsIndex.set(p.tracks[0] + '|' + d.answer, d);
+    }));
+    const seqToDrills = (seq) => seq.map((e) => {
+      const [cuePart, answerText] = e.split('|');
+      const trackNum = parseInt((/Track (\d+)/.exec(cuePart) || [])[1], 10);
+      return allDrillsIndex.get(trackNum + '|' + answerText) || null;
+    });
+
+    // ---- (a) breadth: with far more covered tracks than RECAP_SIZE, a recap spans both the first and last quarter of the covered range ----
+    await page.evaluate(() => { try { localStorage.clear(); } catch (e) { /* ignore */ } });
+    const breadthPacks = DATA.packs
+      .filter((p) => (p.drills || []).length >= 1)
+      .sort((a, b) => a.tracks[0] - b.tracks[0])
+      .slice(0, 40);
+    check(breadthPacks.length === 40, 'found 40 tracks with at least one drill to seed the breadth/order/dedup checks with',
+      `got ${breadthPacks.length}`);
+    await page.evaluate((ids) => {
+      const doneMap = {};
+      ids.forEach((id) => { doneMap[id] = true; });
+      localStorage.setItem('lt-review-done', JSON.stringify(doneMap));
+    }, breadthPacks.map((p) => p.id));
+    await page.reload({ waitUntil: 'load' });
+    await page.waitForSelector('.packcard');
+    await page.waitForSelector('#recapBtn');
+    await page.click('#recapBtn');
+    await page.waitForSelector('.cue');
+
+    const breadthSeq = await stepThroughRecap();
+    const breadthTrackNums = breadthSeq.map((e) => parseInt((/Track (\d+)/.exec(e) || [])[1], 10));
+    check(breadthTrackNums.every((n) => !Number.isNaN(n)), 'every recap drill in the breadth check identifies its own track');
+
+    const minTrack = breadthPacks[0].tracks[0], maxTrack = breadthPacks[breadthPacks.length - 1].tracks[0];
+    const quarterSpan = (maxTrack - minTrack) / 4;
+    const touchesFirstQuarter = breadthTrackNums.some((t) => t <= minTrack + quarterSpan);
+    const touchesLastQuarter = breadthTrackNums.some((t) => t >= maxTrack - quarterSpan);
+    check(touchesFirstQuarter && touchesLastQuarter,
+      'with 40 tracks covered, a recap spans both the first and last quarter of the covered range',
+      `tracks drawn: ${[...new Set(breadthTrackNums)].sort((x, y) => x - y).join(', ')} (covered range ${minTrack}-${maxTrack})`);
+
+    // ---- (c) course order: the recap's drills come back in non-decreasing track order ----
+    let nonDecreasing = true;
+    for (let i = 1; i < breadthTrackNums.length; i++) {
+      if (breadthTrackNums[i] < breadthTrackNums[i - 1]) { nonDecreasing = false; break; }
+    }
+    check(nonDecreasing,
+      "the recap's drills are in non-decreasing track order (the course's own order), not the order they were drawn in",
+      breadthTrackNums.join(', '));
+
+    // ---- (b) no duplicate answers ----
+    const breadthAnswers = breadthSeq.map((e) => normalizeAnswerTest(e.split('|')[1]));
+    check(new Set(breadthAnswers).size === breadthAnswers.length,
+      'no two drills in one recap share the same (normalised) answer',
+      `${breadthAnswers.length} drills, only ${new Set(breadthAnswers).size} distinct normalised answers`);
+
+    // ---- (d) rule diversity and the word-drill cap, when the covered pool can support both ----
+    // Run it several times - each is a fresh weighted draw, so one lucky (or
+    // unlucky) run proves nothing either way.
+    const breadthFamilies = new Set();
+    breadthPacks.forEach((p) => (p.rules || []).forEach((r) => breadthFamilies.add(familyOfTest(r))));
+    const breadthSentences = breadthPacks.reduce((n, p) => n + (p.drills || []).filter((d) => d.type !== 'word').length, 0);
+    check(breadthFamilies.size >= RECAP_SIZE_EXPECTED && breadthSentences >= RECAP_SIZE_EXPECTED,
+      'the seeded 40-track pool has enough distinct rule families and sentence drills to actually exercise diversity + the word cap',
+      `${breadthFamilies.size} families, ${breadthSentences} sentence drills`);
+
+    let repeatFamilyRuns = 0, overWordCapRuns = 0;
+    const runFamilyWordCheck = async (seq) => {
+      const drills = seqToDrills(seq);
+      check(drills.every(Boolean), 'every recap drill in the diversity check was matched back to its source drill',
+        `${drills.filter((d) => !d).length} unmatched of ${drills.length}`);
+      const seenFamilies = new Set();
+      let repeated = false;
+      drills.forEach((d) => {
+        if (!d) return;
+        (d.rules || []).forEach((rid) => {
+          const r = ruleByIdTest(rid);
+          const fam = r ? familyOfTest(r) : rid;
+          if (seenFamilies.has(fam)) repeated = true;
+          seenFamilies.add(fam);
+        });
+      });
+      if (repeated) repeatFamilyRuns++;
+      const wordCount = drills.filter((d) => d && d.type === 'word').length;
+      if (wordCount > 2) overWordCapRuns++;
+    };
+    await runFamilyWordCheck(breadthSeq);
+    for (let run = 0; run < 4; run++) {
+      await page.waitForSelector('#newRecapBtn');
+      await page.click('#newRecapBtn');
+      await page.waitForSelector('.cue');
+      const seq = await stepThroughRecap();
+      await runFamilyWordCheck(seq);
+    }
+    check(repeatFamilyRuns === 0,
+      'with a rich covered pool, no rule family repeats within a single recap, across 5 runs',
+      `${repeatFamilyRuns}/5 runs had a repeated rule family`);
+    check(overWordCapRuns === 0,
+      'with plenty of sentence drills available, a recap never exceeds its 2-word-drill cap, across 5 runs',
+      `${overWordCapRuns}/5 runs exceeded the word-drill cap`);
+
+    check(pageErrors.length === 0, 'no page/console errors during the recap composition checks',
+      pageErrors.join('\n  '));
+
     // ---------- the two backs on a drill screen do different things ----------
     // "Take that back" used to mean three things depending on what happened
     // to be on screen - fold the answer, fold a hint, or jump to the previous
@@ -933,6 +1058,260 @@ async function main() {
 
     check(pageErrors.length === 0, 'no page/console errors during the auto-finish checks',
       pageErrors.join('\n  '));
+
+    // ==================== bug fixes: home hero, listen-first, summary/back navigation, rule-filtered restart, glossary "ahead" marking, confidence:"low" ====================
+
+    // ---- 1 & 2. nextRecommendedTrack() skips an untouched drills-only pack once there's progress; the hero label reflects "nothing yet" vs. "left off" ----
+    await clearAndReload(page);
+    let heroLabel = (await page.textContent('.home-hero .lbl')).trim();
+    check(heroLabel === 'Start here',
+      'a fresh user with no progress at all and no done-marks sees "Start here", not "Where you left off"',
+      `got ${JSON.stringify(heroLabel)}`);
+    let heroPid = await page.getAttribute('#continueCardBtn', 'data-pid');
+    check(!!drillLessPack && heroPid === drillLessPack.id,
+      'a fresh user still gets the drills-only pack (track 1) recommended first, same as before',
+      `got ${heroPid}, expected ${drillLessPack && drillLessPack.id}`);
+    check(await page.locator('.home-hero .listen').count() === 0,
+      'the listen-first line does not show for a drills-only recommendation (there is nothing to build)');
+
+    if (drillLessPack) {
+      // Give the learner some progress elsewhere, but leave the drills-only
+      // pack itself untouched and unticked - it must stop being recommended
+      // once there's any sign they've moved on, rather than pointing the
+      // hero at it forever until someone finds and ticks its circle by hand.
+      const progressPack = DATA.packs.find((p) => p.id !== drillLessPack.id && (p.drills || []).length >= 1);
+      check(!!progressPack, 'found a second pack to grade a drill in, to give the fresh user "some progress"');
+      if (progressPack) {
+        await page.evaluate(({ pid, did }) => {
+          localStorage.setItem('lt-review:' + pid, JSON.stringify({ [did]: 'got' }));
+        }, { pid: progressPack.id, did: progressPack.drills[0].id });
+        await page.reload({ waitUntil: 'load' });
+        await page.waitForSelector('.packcard');
+
+        heroLabel = (await page.textContent('.home-hero .lbl')).trim();
+        check(heroLabel === 'Where you left off',
+          'once there is any graded progress, the hero label switches to "Where you left off"',
+          `got ${JSON.stringify(heroLabel)}`);
+        heroPid = await page.getAttribute('#continueCardBtn', 'data-pid');
+        check(heroPid !== drillLessPack.id,
+          'with any progress logged, the home hero no longer recommends the still-untouched drills-only track',
+          `still recommending ${heroPid}`);
+
+        // ---- 3a. listen-first line on the home hero ----
+        const listenCount = await page.locator('.home-hero .listen').count();
+        check(listenCount > 0, 'the home hero now names a real track with drills, so it shows the listen-first line');
+        if (listenCount > 0) {
+          const listenText = (await page.textContent('.home-hero .listen')).trim();
+          const heroTNumMatch = (await page.textContent('.home-hero .t')).match(/\d+/);
+          check(!!heroTNumMatch && listenText.indexOf('Listen to track ' + heroTNumMatch[0]) !== -1,
+            'the home hero tells the learner to listen to the recommended track\'s audio before drilling it',
+            `hero track text unclear or mismatched: ${JSON.stringify(listenText)}`);
+        }
+      }
+    }
+
+    // ---- 3b. listen-next line on a normal summary, only when a next track exists ----
+    await clearAndReload(page);
+    const summaryNextPack = finishCandidates[0];
+    const summaryNextExpected = orderedByTrack[orderedByTrack.findIndex((p) => p.id === summaryNextPack.id) + 1];
+    check(!!summaryNextExpected, 'the chosen pack has a following track in order, to test the summary listen-next line with');
+    await page.click(`.rowbtn[data-pid="${cssEscape(summaryNextPack.id)}"]`);
+    await page.waitForSelector('.cue');
+    await gradeAllGot(page, summaryNextPack.drills.length);
+    await page.waitForSelector('.summary-line');
+    const summaryListenCount = await page.locator('.listennote').count();
+    check(summaryListenCount > 0,
+      'a normal summary with a next track shows the listen-next-track reminder above the bar');
+    if (summaryListenCount > 0) {
+      const summaryListenText = (await page.textContent('.listennote')).trim();
+      check(summaryListenText.indexOf(`Track ${summaryNextExpected.tracks[0]}`) !== -1 &&
+        summaryListenText.toLowerCase().indexOf("after you've listened to it") !== -1,
+        'the listen-next-track line names the actual next track',
+        summaryListenText);
+    }
+
+    // ---- 4. browser back from a summary leaves the track; the Drills tab on a finished session shows the summary, not a dead screen ----
+    await clearAndReload(page);
+    const backTestPack = finishCandidates[1] || finishCandidates[0];
+    await page.click(`.rowbtn[data-pid="${cssEscape(backTestPack.id)}"]`);
+    await page.waitForSelector('.cue');
+    await gradeAllGot(page, backTestPack.drills.length);
+    await page.waitForSelector('.summary-line');
+    // The app's popstate handler acts on the live `view` variable, not the
+    // popped history entry, so dispatching the event is equivalent to a real
+    // browser/system back press here without depending on Playwright's own
+    // history navigation lining up with the SPA's pushState calls.
+    await page.evaluate(() => window.dispatchEvent(new PopStateEvent('popstate')));
+    await page.waitForTimeout(150);
+    let afterBack = await page.evaluate(() => ({
+      mainClass: document.querySelector('main') ? document.querySelector('main').className : '',
+      hasEmpty: !!document.querySelector('.empty'),
+    }));
+    check(afterBack.mainClass.indexOf('view-home') !== -1 && !afterBack.hasEmpty,
+      'browser/system back from a summary screen leaves the track (home), not a dead "Nothing to practice here." drill screen',
+      JSON.stringify(afterBack));
+
+    // Reopening it lands directly back on the summary now (goBack() above
+    // just marked it done via maybeAutoFinish(), and a fully-graded pool
+    // resumes at idx === queue.length per startSession()/resumeIndex()) -
+    // exactly the "finished session" shape the Drills tab fix targets, with
+    // no need to re-grade anything.
+    await page.click(`.rowbtn[data-pid="${cssEscape(backTestPack.id)}"]`);
+    await page.waitForSelector('.summary-line');
+    await page.click('#tabDrills');
+    const tabDrillsMainClass = await page.evaluate(() => document.querySelector('main').className);
+    const tabDrillsEmptyCount = await page.locator('.empty').count();
+    check(tabDrillsMainClass.indexOf('view-summary') !== -1 && tabDrillsEmptyCount === 0,
+      'the Drills tab on a finished session shows the summary screen, not "Nothing to practice here."',
+      `main class ${JSON.stringify(tabDrillsMainClass)}, .empty count ${tabDrillsEmptyCount}`);
+
+    // ---- 5. "Start over" on a rule-filtered summary keeps the filter, instead of restarting the whole track ----
+    if (rulePack) {
+      await clearAndReload(page);
+      await page.click(`.rowbtn[data-pid="${cssEscape(rulePack.id)}"]`);
+      await page.waitForSelector('.cue');
+      await page.click('#tabRules');
+      await page.waitForSelector(`.practicebtn[data-ruleid="${cssEscape(ruleId)}"]`);
+      await page.click(`.practicebtn[data-ruleid="${cssEscape(ruleId)}"]`);
+      await page.waitForSelector('.cue');
+      // Recomputed locally: the `filteredCount` from the earlier auto-finish
+      // check is scoped to that check's own `if (rulePack)` block.
+      const filteredCount = rulePack.drills.filter((d) => (d.rules || []).indexOf(ruleId) !== -1).length;
+      await gradeAllGot(page, filteredCount);
+      await page.waitForSelector('#backToFullBtn');
+      check(await page.locator('.listennote').count() === 0,
+        'a rule-filtered summary shows no listen-next-track line - "Back to Track N" is the only next step it offers');
+
+      await page.click('#restartBtn');
+      await page.waitForSelector('.cue');
+      const restartBanner = await page.locator('.filterbanner').count();
+      check(restartBanner > 0,
+        '"Start over" on a rule-filtered session keeps the rule filter instead of dropping it and restarting the whole track');
+      const restartCue = (await page.textContent('.cue')).trim();
+      check(restartCue.indexOf(`drill 1 of ${filteredCount}`) !== -1,
+        '"Start over" on a rule-filtered session restarts the same filtered set of drills, not the full track',
+        `cue read ${JSON.stringify(restartCue)}, expected to contain "drill 1 of ${filteredCount}"`);
+    }
+
+    check(pageErrors.length === 0, 'no page/console errors during the bug-fix navigation checks',
+      pageErrors.join('\n  '));
+
+    // ---- 6. the "All rules" glossary marks entries introduced beyond the learner's current track ----
+    await clearAndReload(page);
+    const orderedGlossTest = DATA.packs.slice().sort((a, b) => a.tracks[0] - b.tracks[0]);
+    const doneAheadIds = orderedGlossTest.slice(0, 3).map((p) => p.id);
+    await page.evaluate((ids) => {
+      const doneMap = {};
+      ids.forEach((id) => { doneMap[id] = true; });
+      localStorage.setItem('lt-review-done', JSON.stringify(doneMap));
+    }, doneAheadIds);
+    await page.reload({ waitUntil: 'load' });
+    await page.waitForSelector('.packcard');
+    const curTestPack = orderedGlossTest.find((p) => !doneAheadIds.includes(p.id));
+    check(!!curTestPack, 'found the next undone pack after seeding 3 done tracks, to compute the expected current track');
+    const curTrackExpected = curTestPack.tracks[0];
+
+    await page.click('#glossaryBtn');
+    await page.waitForSelector('.glosshead');
+    const glossState = await page.evaluate(() => [...document.querySelectorAll('.glosshead')].map((el, i) => ({
+      i,
+      fam: el.getAttribute('data-fam'),
+      origin: parseInt(el.querySelector('.num').textContent, 10),
+      ahead: el.classList.contains('ahead'),
+      n: el.querySelector('.n').textContent.trim(),
+    })));
+    check(glossState.length > 0, 'the glossary rendered at least one entry to check "ahead" marking on');
+
+    const wronglyAhead = glossState.filter((e) => e.origin <= curTrackExpected && e.ahead);
+    check(wronglyAhead.length === 0,
+      `no glossary entry introduced at or before track ${curTrackExpected} is marked "ahead"`,
+      wronglyAhead.map((e) => e.fam).join(', '));
+    const wronglyNotAhead = glossState.filter((e) => e.origin > curTrackExpected && !e.ahead);
+    check(wronglyNotAhead.length === 0,
+      `every glossary entry introduced after track ${curTrackExpected} is marked "ahead"`,
+      wronglyNotAhead.slice(0, 5).map((e) => e.fam).join(', '));
+    const aheadWithCount = glossState.find((e) => e.ahead && e.n !== 'not reached yet');
+    check(!aheadWithCount,
+      'an "ahead" entry replaces its right-hand count label with "not reached yet"',
+      aheadWithCount && JSON.stringify(aheadWithCount));
+
+    const aheadEntry = glossState.find((e) => e.ahead);
+    check(!!aheadEntry, 'found at least one "ahead" entry to test the opened-panel message on');
+    if (aheadEntry) {
+      await page.locator('.glosshead').nth(aheadEntry.i).click();
+      await page.waitForSelector('#glp-' + aheadEntry.i);
+      const panelText = (await page.textContent('#glp-' + aheadEntry.i)).trim();
+      check(panelText.indexOf("haven't reached it yet") !== -1 && panelText.indexOf(String(aheadEntry.origin)) !== -1,
+        'opening an "ahead" entry explains which track teaches it and that it hasn\'t been reached yet',
+        panelText);
+    }
+
+    check(pageErrors.length === 0, 'no page/console errors during the glossary "ahead" checks',
+      pageErrors.join('\n  '));
+
+    // ==================== low-confidence flag also fires for confidence:"low" (documented string form) ====================
+    // skill/references/pack-format.md documents confidence as either a number
+    // (warn below 0.7, already covered above) or the literal string "low",
+    // which the player used to not handle at all. Nothing in the current
+    // dataset is guaranteed to use the string form, so this injects it by
+    // patching the page's own embedded JSON rather than depending on content.
+    {
+      const dataOpenTag = '<script id="pack-data" type="application/json">';
+      const dataOpenIdx = html.indexOf(dataOpenTag);
+      const dataStart = dataOpenIdx === -1 ? -1 : dataOpenIdx + dataOpenTag.length;
+      const dataCloseIdx = dataStart === -1 ? -1 : html.indexOf('</script', dataStart);
+      check(dataStart !== -1 && dataCloseIdx !== -1,
+        'located the embedded pack-data script tag to patch for the confidence:"low" test');
+
+      if (dataStart !== -1 && dataCloseIdx !== -1) {
+        const rawDataStr = html.slice(dataStart, dataCloseIdx).replace(/<\\\/script/g, '</script');
+        const patchedData = JSON.parse(rawDataStr);
+        let lowPack = null, lowDrill = null, lowIdx = -1;
+        outer:
+        for (const p of patchedData.packs) {
+          const drills = p.drills || [];
+          for (let i = 0; i < drills.length; i++) {
+            if (drills[i].confidence === undefined) { lowPack = p; lowDrill = drills[i]; lowIdx = i; break outer; }
+          }
+        }
+        check(!!lowDrill, 'found a drill with no confidence field to inject "low" into');
+
+        if (lowDrill) {
+          lowDrill.confidence = 'low';
+          const patchedJson = JSON.stringify(patchedData).replace(/</g, '\\u003c');
+          const patchedHtml = html.slice(0, dataStart) + patchedJson + html.slice(dataCloseIdx);
+
+          const savedHtml = serverState.html;
+          serverState.html = patchedHtml;
+          const lowPage = await context.newPage();
+          const lowErrors = [];
+          lowPage.on('pageerror', (e) => lowErrors.push('pageerror: ' + e.message));
+          lowPage.on('console', (m) => { if (m.type() === 'error') lowErrors.push('console error: ' + m.text()); });
+          try {
+            await lowPage.goto(url, { waitUntil: 'load' });
+            await lowPage.waitForSelector('.packcard');
+            const seed = {};
+            for (let i = 0; i < lowIdx; i++) seed[lowPack.drills[i].id] = 'got';
+            await lowPage.evaluate(([k, v]) => { localStorage.clear(); localStorage.setItem(k, v); },
+              ['lt-review:' + lowPack.id, JSON.stringify(seed)]);
+            await lowPage.reload({ waitUntil: 'load' });
+            await lowPage.waitForSelector('.packcard');
+            await lowPage.evaluate((id) => document.getElementById('pack-' + id).querySelector('.rowbtn').click(), lowPack.id);
+            await lowPage.waitForSelector('.cue');
+            await lowPage.click('#revealBtn');
+            await lowPage.waitForSelector('.answer');
+            const flagCount = await lowPage.locator('.answer .flag').count();
+            check(flagCount > 0,
+              'a drill with confidence:"low" (the documented string form) shows the low-confidence warning after reveal',
+              `flag count ${flagCount}`);
+          } finally {
+            serverState.html = savedHtml;
+            check(lowErrors.length === 0, 'no page/console errors during the confidence:"low" check', lowErrors.join('\n  '));
+            await lowPage.close();
+          }
+        }
+      }
+    }
 
     // ---------- /demo cannot touch a real user's progress ----------
     // The demo ships sample progress so the screens aren't empty, and it

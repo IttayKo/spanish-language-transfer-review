@@ -10,14 +10,37 @@ sits next to the audio course; it doesn't replace it.
 
 - **Tracks** (1–90, in 12 thematic sections) — open one, work its drills in
   the order the teacher gave them, reveal scaffolding a piece at a time, mark
-  it done. Reopening resumes where you left off. "Recap practice" is a plain
-  mixed handful of drills from across the tracks you've covered.
+  it done. Reopening resumes where you left off. "Recap practice" draws
+  twelve drills spread across every track you've covered — a fixed number of
+  bands across that whole range so a recap after track 60 still touches
+  early material, not just whatever a flat shuffle landed on, rarely the
+  same rule twice, and favouring sentence drills (especially ones the
+  teacher never actually said, so you're building the sentence rather than
+  recalling the recording) over quick word swaps. It's composed from what's
+  covered and how the drills are shaped, on purpose never from grades or a
+  past recap: nothing here is spaced repetition, and a recap can never
+  quietly turn into a drill of your own weak spots.
 - **All rules** — the same ~250 grammar mechanisms in one searchable list,
   for when you remember the rule but not the track. The course teaches a
   mechanism once and keeps coming back to it, and each returning track gets
   its own self-contained copy (the `family` field in `pack-format.md` links
   copies of the same rule together); the glossary groups them back into one
-  entry per concept, with a practice button per track that drills it.
+  entry per concept, with a practice button per track that drills it. It
+  stays a full reference — nothing is hidden — but an entry the course
+  introduces after the track you're currently on is marked quietly (dimmed
+  title, "not reached yet" in place of its track count, one line in its
+  panel naming the track that teaches it) rather than read as if it were
+  already fair game.
+
+The home screen opens on a hero pointing at what's next: **"Start here"**
+before you've done anything (track 1 first, always), **"Where you left
+off"** once there's real progress. A track with no drills of its own (track
+1) never auto-marks itself done (see below), so once there's any sign
+you've moved on it's skipped rather than recommended forever waiting for its
+one rules-only done-circle to be ticked by hand. The hero, and a track's own
+summary before it offers the next one's drills, both say quietly to listen
+to that track's audio first — the drills are for building what it taught,
+after, not instead of it.
 
 Progress lives only in the browser's `localStorage` — there's no account and
 no server copy, so clearing site data or switching devices loses it with no
@@ -165,3 +188,13 @@ control, the app still renders while offline with progress intact, and —
 the one failure mode that matters most here — a fresh build is actually
 picked up the next time it's back online instead of the cached one), so a
 build that breaks any of this fails loudly instead of shipping.
+
+Two of those checks exist only to protect learners' saved progress, which
+lives in their browser alone. `data/shipped-ids.json` is the append-only
+record of every pack and drill id that has shipped - progress is keyed by
+them, so `npm test` fails if one disappears or moves to another pack (add
+ids freely; to retire a drill, keep its id). And `scripts/upgrade_test.js`
+grades drills and ticks a track done on the build real learners have now
+(`origin/main`'s `index.html`), loads the new build over it at the same
+origin, and fails unless every progress key is untouched and still shows up
+- the tick, the x/n count, and resuming on the first ungraded drill.
