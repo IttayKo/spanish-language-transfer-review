@@ -43,6 +43,34 @@ def spanish_leak(text):
     return None
 
 
+def _contains_run(words, run):
+    n = len(run)
+    return n > 0 and any(words[i:i + n] == run for i in range(len(words) - n + 1))
+
+
+def step_result(step):
+    """The part of a step that shows what the decision produced: whatever
+    follows its last ': ', ' -> ' or ' = ', or the whole step if it has none."""
+    for sep in (": ", " -> ", " = "):
+        i = step.rfind(sep)
+        if i != -1:
+            return step[i + len(sep):]
+    return step
+
+
+def gives_away(step, answer):
+    """True if this step hands over the whole answer. Steps lead up to the
+    answer; the learner does the last piece of assembly, and "Show the answer"
+    is what confirms it. A step that already shows the complete sentence (a
+    "put it together: <the answer>") lets the learner tap their way to the
+    answer instead of building it, which is the one thing the scaffolding must
+    never do. Pieces are fine; the whole is not."""
+    run = WORDS.findall(answer.lower())
+    if _contains_run(WORDS.findall(step_result(step).lower()), run):
+        return True
+    return len(run) >= 2 and _contains_run(WORDS.findall(step.lower()), run)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("pack", help="path to the pack JSON file")
@@ -94,6 +122,13 @@ def main():
         leak = spanish_leak(drill.get("prompt", ""))
         if leak:
             errors.append(f"{where} ({did}): prompt {leak} -> {drill.get('prompt')!r}")
+
+        for n, step in enumerate(drill.get("steps") or [], 1):
+            if gives_away(step, drill.get("answer", "")):
+                errors.append(f"{where} ({did}): step {n} gives away the whole answer -> {step!r}")
+
+        if "confidence" in drill and drill["confidence"] != "low":
+            errors.append(f"{where} ({did}): confidence must be \"low\" or absent, got {drill['confidence']!r}")
 
         for rid in drill.get("rules", []):
             used_rules.add(rid)

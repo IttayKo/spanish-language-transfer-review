@@ -122,12 +122,28 @@ House style, because the prompts are read one after another:
 
 ## Steps
 
-A step names the decision it is making, then shows what that decision
-produces: `"not: no, right before es"`, `"put it together: se lo vendí"`.
+A step names the decision it is making, then shows the piece that decision
+produces: `"not: no, right before es"`, `"it: lo, jumping out in front"`.
 
 A step that is only the Spanish hands over the answer without the move that
 got there, which is the one thing the scaffolding exists for. Steps are
 lowercase (unless they open with `I` or a name) and carry no final full stop.
+
+**No step may contain the whole answer.** Steps lead up to it; the learner
+does the last piece of assembly, and "Show the answer" is what confirms it.
+A closing `"put it together: se lo vendí"` lets someone tap their way to the
+sentence without building it - name the move instead (`"put it together: both
+little words before the verb, se first"`), or leave the step out. The same
+goes for word drills: `"add an e to the end"`, not `"add e: diferente"`. Rule
+first, pieces after - never the result first and the reasoning second.
+`validate_pack.py` fails a step whose result (whatever follows its last `: `,
+` -> ` or ` = `), or for a multi-word answer the step as a whole, contains
+the complete answer.
+
+When the prompt is already spelled like the answer (`normal`, `hotel`), the
+drill is about pronunciation: the steps say where the stress goes without
+writing the word out, and a `note` - shown only after the reveal - spells it
+(`"said norMAL - the stress moves to the end"`).
 
 ## Combined dataset (this repo)
 

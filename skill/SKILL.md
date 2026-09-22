@@ -94,6 +94,9 @@ drill. Take these three fields from the transcript:
 - `steps` — the sub-prompts the teacher used to break the sentence down, in
   order. These become the scaffolding. If the teacher didn't break it down,
   write the steps in his voice anyway, one per decision the learner has to make.
+  Each step gives a piece, never the whole: the last bit of assembly is the
+  learner's, and a closing "put it together: <the whole answer>" takes it off
+  them (see "Steps" in `pack-format.md`).
 
 Single-word conversions ("how would you say celebration?") are `type: "word"`
 drills. Sentences are `type: "sentence"`. (This split is the app's own
@@ -229,9 +232,9 @@ Then always run:
 python3 skill/scripts/validate_pack.py pack.json
 ```
 
-It fails on Spanish leaking into a prompt, which is the one error that actually
-damages the learner's practice, and warns about unlinked rules and missing
-scaffolding.
+It fails on the two errors that actually damage the learner's practice -
+Spanish leaking into a prompt, and a step that hands over the whole answer -
+and warns about unlinked rules and missing scaffolding.
 
 ### 8. Merge into the app
 
