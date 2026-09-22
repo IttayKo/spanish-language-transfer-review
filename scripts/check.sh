@@ -47,6 +47,36 @@ else
 fi
 
 # ---------------------------------------------------------------------------
+section "Saved progress: every pack and drill id that ever shipped still exists, in the same pack"
+# Progress is keyed by pack id and drill id and lives only in each learner's
+# browser. Renaming or dropping an id - or moving a drill to another pack -
+# silently orphans every grade saved against it, with no server copy to
+# restore from. data/shipped-ids.json is the append-only record of every id
+# that has shipped; content edits may add ids, never remove or move one.
+if python3 - "$ROOT/data/combined-final.json" "$ROOT/data/shipped-ids.json" <<'PYEOF'
+import json, sys
+data = json.load(open(sys.argv[1], encoding="utf-8"))
+shipped = json.load(open(sys.argv[2], encoding="utf-8"))["packs"]
+now = {p["id"]: {d["id"] for d in p["drills"]} for p in data["packs"]}
+problems = []
+for pid, drill_ids in shipped.items():
+    if pid not in now:
+        problems.append(f"pack {pid} is gone")
+        continue
+    for did in drill_ids:
+        if did not in now[pid]:
+            problems.append(f"drill {did} is no longer in pack {pid}")
+for line in problems[:20]:
+    print("  " + line)
+sys.exit(1 if problems else 0)
+PYEOF
+then
+  ok "every shipped pack id and drill id is still present in its pack - saved progress stays attached"
+else
+  bad "ids that saved progress is keyed by have disappeared or moved (see above) -- learners' grades for them would be silently orphaned. Restore the ids; to retire a drill, keep its id or ship a migration."
+fi
+
+# ---------------------------------------------------------------------------
 section "Per-pack validation (skill/scripts/validate_pack.py x 90)"
 PACK_TMP_DIR="$(mktemp -d)"
 trap 'rm -rf "$PACK_TMP_DIR" "${BUILD_TMP_DIR:-}"' EXIT
@@ -145,6 +175,23 @@ if NODE_PATH=/opt/node22/lib/node_modules PLAYWRIGHT_BROWSERS_PATH=/opt/pw-brows
 else
   bad "browser smoke test failed (see output above)"
 fi
+
+# ---------------------------------------------------------------------------
+section "Upgrade: progress saved on the shipped build survives loading this one"
+# The previously shipped build is origin/main's index.html (what learners
+# have progress in right now). Without it - no git, no origin/main - this is
+# skipped with a warning rather than faked.
+OLD_BUILD="$(mktemp)"
+if git show origin/main:index.html > "$OLD_BUILD" 2>/dev/null && [ -s "$OLD_BUILD" ]; then
+  if NODE_PATH=/opt/node22/lib/node_modules PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers node scripts/upgrade_test.js "$OLD_BUILD" index.html; then
+    ok "progress written by the shipped build (origin/main) is intact and shown after upgrading to this build"
+  else
+    bad "upgrading from the shipped build loses or misreads saved progress (see above) -- real learners would lose it on deploy"
+  fi
+else
+  soft "couldn't read origin/main:index.html, so the upgrade test was skipped (run 'git fetch origin main')"
+fi
+rm -f "$OLD_BUILD"
 
 # ---------------------------------------------------------------------------
 section "Summary"
