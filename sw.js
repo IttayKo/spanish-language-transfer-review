@@ -43,6 +43,14 @@ function docCacheKey() {
   return new Request(self.registration.scope);
 }
 
+// The paths the app's own page is served at (Vercel's cleanUrls serves
+// index.html at the scope root). Everything else that asks for HTML - /demo
+// above all - is a different page and must never be stored as this one.
+function isAppDocument(url) {
+  var root = new URL(self.registration.scope).pathname;
+  return url.pathname === root || url.pathname === root + "index.html";
+}
+
 self.addEventListener("install", function (event) {
   self.skipWaiting(); // take over immediately on update, don't wait for old tabs to close
   if (KILL_SWITCH) return;
@@ -92,6 +100,12 @@ self.addEventListener("fetch", function (event) {
     (req.headers.get("accept") || "").indexOf("text/html") !== -1;
 
   if (isDocument) {
+    // Only the app's own page is "the document". Its scope is the whole
+    // site, so /demo (a different build of the same page, with sample
+    // progress in it) is a navigation this worker also sees - and caching
+    // that under the one document key used to make the demo the installed
+    // app's offline copy. Any other page is left to the network, untouched.
+    if (!isAppDocument(url)) return;
     event.respondWith(networkFirstDocument(req));
     return;
   }

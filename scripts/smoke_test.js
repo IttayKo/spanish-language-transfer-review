@@ -42,6 +42,13 @@ function startServer(state) {
   return new Promise((resolve) => {
     const server = http.createServer((req, res) => {
       const urlPath = (req.url || '/').split('?')[0];
+      // "Offline" for real: refuse the connection outright. Playwright's
+      // context.setOffline() doesn't reach a service worker's own fetches
+      // in Chromium, so on its own it let the worker quietly fetch from the
+      // network and an offline check could pass without the cache ever
+      // being read. `refused` counts the attempts, so a test can prove the
+      // network was actually tried and failed.
+      if (state.offline) { state.refused = (state.refused || 0) + 1; req.socket.destroy(); return; }
       if (urlPath === '/favicon.ico') { res.writeHead(204); res.end(); return; }
 
       // /demo is the second build the same source produces: the app
@@ -451,8 +458,15 @@ async function main() {
       .split(/\s+/).includes('done');
     check(preOfflineDone, 'the seeded pack is showing as done before going offline (sanity check)');
 
+    // Both kinds of offline: the page's own requests (setOffline) and the
+    // service worker's (the server refusing every connection - see
+    // startServer), so the only place the page can come from is the cache.
     await context.setOffline(true);
+    serverState.offline = true; serverState.refused = 0;
     await page.reload({ waitUntil: 'load' });
+    check(serverState.refused > 0,
+      'going offline really cut the network: the service worker tried it and was refused',
+      `refused ${serverState.refused} request(s)`);
     const offlineCardCount = await page.locator('.packcard').count();
     check(offlineCardCount === DATA.packs.length,
       'the app still loads and renders every track while offline, served from the service worker cache');
@@ -461,7 +475,25 @@ async function main() {
     check(offlineDone === preOfflineDone,
       'progress (feature 1) survives being served offline from the cache',
       `got done=${offlineDone}, expected done=${preOfflineDone}`);
+    serverState.offline = false;
     await context.setOffline(false);
+
+    // /demo is inside the worker's scope, so the worker sees that
+    // navigation too. It used to cache any page it served under the app's
+    // one document key, which made the demo - sample progress, demo banner
+    // and all - the installed app's offline copy after a single visit.
+    await page.goto(`http://127.0.0.1:${port}/demo`, { waitUntil: 'load' });
+    await page.waitForSelector('.packcard');
+    await context.setOffline(true);
+    serverState.offline = true;
+    await page.goto(`http://127.0.0.1:${port}/`, { waitUntil: 'load' });
+    await page.waitForSelector('.packcard');
+    check(await page.locator('.demo-note').count() === 0,
+      'visiting /demo online does not turn the demo into the app\'s offline copy');
+    serverState.offline = false;
+    await context.setOffline(false);
+    await page.goto(`http://127.0.0.1:${port}/`, { waitUntil: 'load' });
+    await page.waitForSelector('.packcard');
 
     // Simulate a real deploy landing while this client was offline: swap the
     // bytes the test server hands out for "/" and confirm the very next
